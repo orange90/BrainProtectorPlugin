@@ -7,12 +7,14 @@
   <style>
     * { box-sizing:border-box; margin:0; padding:0; }
     :root { --bg:#f5f4f0; --card:#fff; --bd:rgba(0,0,0,.12); --tx:#1a1a18; --tx2:#5a5a55; --muted:#9a9a92; --green:#3B6D11; --red:#A32D2D; --accent:#534AB7; }
-    @media (prefers-color-scheme: dark){ :root{ --bg:#141412; --card:#1e1e1b; --bd:rgba(255,255,255,.12); --tx:#e8e6e0; --tx2:#a8a8a0; --muted:#66665e; --green:#8bc34a; --red:#e05555; --accent:#9a90ff; } }
-    body { font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; background:var(--bg); color:var(--tx); padding:28px 20px; }
+    [data-theme="dark"]{ --bg:#141412; --card:#1e1e1b; --bd:rgba(255,255,255,.12); --tx:#e8e6e0; --tx2:#a8a8a0; --muted:#66665e; --green:#8bc34a; --red:#e05555; --accent:#9a90ff; }
+    body { font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; background:var(--bg); color:var(--tx); padding:28px 20px; transition:background .25s,color .25s; }
     .wrap { max-width:820px; margin:0 auto; }
+    .topbar { margin-bottom:16px; }
+    .back-btn { display:inline-flex; align-items:center; gap:6px; }
     h1 { font-size:20px; margin-bottom:4px; display:flex; align-items:center; gap:8px; }
     .lead { font-size:12px; color:var(--muted); margin-bottom:20px; }
-    .panel { background:var(--card); border:0.5px solid var(--bd); border-radius:12px; padding:18px 20px; margin-bottom:16px; }
+    .panel { background:var(--card); border:0.5px solid var(--bd); border-radius:18px; padding:18px 20px; margin-bottom:16px; box-shadow:0 1px 3px rgba(0,0,0,.04),0 6px 16px rgba(0,0,0,.05); }
     .panel h2 { font-size:14px; margin-bottom:4px; }
     .panel .hint { font-size:11px; color:var(--muted); margin-bottom:14px; }
     table { width:100%; border-collapse:collapse; }
@@ -23,8 +25,9 @@
     textarea { min-height:120px; resize:vertical; font-family:ui-monospace,Menlo,monospace; line-height:1.5; }
     .cat-name { font-weight:600; min-width:90px; }
     .num { width:64px; }
-    .btn { border:0.5px solid var(--bd); border-radius:8px; padding:8px 14px; font-size:12px; cursor:pointer; background:var(--bg); color:var(--tx); }
+    .btn { border:0.5px solid var(--bd); border-radius:11px; padding:8px 14px; font-size:12px; cursor:pointer; background:var(--bg); color:var(--tx); transition:background .15s,transform .12s; }
     .btn:hover { background:var(--card); }
+    .btn:active { transform:scale(.97); }
     .btn.primary { background:var(--green); color:#fff; border-color:var(--green); }
     .btn.danger { color:var(--red); border-color:var(--red); }
     .btn-x { background:transparent; border:none; color:var(--red); cursor:pointer; font-size:14px; }
@@ -33,9 +36,36 @@
     .addcat { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
     .addcat input { max-width:200px; }
   </style>
+  <script>
+    /* 跟随全局主题偏好（system|light|dark），尽早执行以减少闪烁 */
+    (function () {
+      var mq = matchMedia('(prefers-color-scheme: dark)');
+      function apply(pref) {
+        var dark = pref === 'dark' || (pref === 'system' && mq.matches);
+        document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+      }
+      apply(mq.matches ? 'system' : 'system');
+      try {
+        chrome.storage.local.get(['theme'], function (res) {
+          apply(['system', 'light', 'dark'].includes(res.theme) ? res.theme : 'system');
+        });
+      } catch (e) { /* ignore */ }
+      mq.addEventListener('change', function () {
+        try {
+          chrome.storage.local.get(['theme'], function (res) {
+            var pref = res.theme || 'system';
+            if (pref === 'system') apply('system');
+          });
+        } catch (e) { /* ignore */ }
+      });
+    })();
+  </script>
 </head>
 <body>
   <div class="wrap">
+    <div class="topbar">
+      <button class="btn back-btn" id="backBtn">← 返回</button>
+    </div>
     <h1>🧠 脑力守护 · 设置</h1>
     <div class="lead">所有规则与数据都保存在本地浏览器，绝不上传任何服务器。</div>
 

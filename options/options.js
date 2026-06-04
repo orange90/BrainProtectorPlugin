@@ -140,6 +140,10 @@ async function clearData() {
   }
 }
 
+document.getElementById('backBtn').addEventListener('click', () => {
+  if (history.length > 1) history.back();
+  else window.close();
+});
 document.getElementById('saveBtn').addEventListener('click', save);
 document.getElementById('resetBtn').addEventListener('click', resetDefaults);
 document.getElementById('addCatBtn').addEventListener('click', addCategory);

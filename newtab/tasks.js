@@ -22,10 +22,21 @@
   };
 
   let groupMode = 'domain';   // 'domain' | 'category'
+  let filterMode = 'all';     // 'all' | 'stale' | 'dup'
   let searchTerm = '';
   let allTabs = [];
   let siteGroups = null;
   const expanded = new Set(); // 展开的组 key
+
+  /* 类别 → 展示用 emoji 图标（按类别分组时使用） */
+  const CATEGORY_EMOJI = {
+    '开发工具': '🛠️',
+    '视频': '🎬',
+    '社交媒体': '💬',
+    '内容社区': '📰',
+    '效率办公': '📊',
+    '其他': '🗂️',
+  };
 
   /* ── 工具 ── */
   function domainOf(url) {
@@ -109,14 +120,33 @@
            (t.url || '').toLowerCase().includes(term);
   }
 
+  function rowPassesFilter(t, urlCount) {
+    if (filterMode === 'stale') return isStale(t);
+    if (filterMode === 'dup') return urlCount.get(normUrl(t.url)) > 1;
+    return true;
+  }
+
+  function groupIcon(key, g) {
+    if (groupMode === 'category') {
+      return `<span class="group-fav-emoji">${CATEGORY_EMOJI[g.label] || '🗂️'}</span>`;
+    }
+    if (key === '__local__') return `<span class="group-fav-emoji">💻</span>`;
+    // 按域名：复用组内任一标签页已加载的 favicon（本地数据，无需外部请求）
+    const favTab = g.tabs.find((t) => t.favIconUrl && /^https?:/.test(t.favIconUrl));
+    return favTab
+      ? `<img class="group-fav" src="${esc(favTab.favIconUrl)}" alt="">`
+      : `<span class="group-fav-emoji">🌐</span>`;
+  }
+
   function renderGroup(key, g, urlCount, term) {
-    const rows = g.tabs.filter((t) => tabMatches(t, term, domainOf(t.url)));
-    if (term && !rows.length) return ''; // 搜索时隐藏空组
+    const rows = g.tabs.filter((t) => tabMatches(t, term, domainOf(t.url)) && rowPassesFilter(t, urlCount));
+    // 搜索或筛选时隐藏没有匹配项的组
+    if ((term || filterMode !== 'all') && !rows.length) return '';
 
     const staleN = g.tabs.filter(isStale).length;
     const dupN = g.tabs.filter((t) => urlCount.get(normUrl(t.url)) > 1).length;
-    // 搜索时强制展开；否则按用户状态，默认折叠（除非曾展开）
-    const open = term ? true : expanded.has(key);
+    // 搜索/筛选时强制展开；否则按用户状态，默认折叠（除非曾展开）
+    const open = (term || filterMode !== 'all') ? true : expanded.has(key);
 
     const badges =
       (staleN ? `<span class="tag tag-stale">⏰ ${staleN}</span>` : '') +
@@ -130,8 +160,9 @@
     return `<div class="task-group">
       <div class="group-head" data-toggle="${esc(key)}">
         <span class="group-caret">${open ? '▾' : '▸'}</span>
+        ${groupIcon(key, g)}
         <span class="group-name">${esc(g.label)}</span>
-        <span class="group-count">${g.tabs.length}</span>
+        <span class="group-count">${rows.length === g.tabs.length ? g.tabs.length : rows.length + '/' + g.tabs.length}</span>
         ${badges}
         <span class="group-actions">${actions}</span>
       </div>
@@ -278,11 +309,19 @@
     const search = document.getElementById('tabSearch');
     if (search) search.addEventListener('input', () => { searchTerm = search.value; paint(); });
 
-    document.querySelectorAll('.seg-btn').forEach((b) => {
+    document.querySelectorAll('.seg-btn[data-group]').forEach((b) => {
       b.addEventListener('click', () => {
         groupMode = b.dataset.group;
-        document.querySelectorAll('.seg-btn').forEach((x) => x.classList.toggle('active', x === b));
+        b.parentElement.querySelectorAll('.seg-btn').forEach((x) => x.classList.toggle('active', x === b));
         expanded.clear();
+        paint();
+      });
+    });
+
+    document.querySelectorAll('.seg-btn[data-filter]').forEach((b) => {
+      b.addEventListener('click', () => {
+        filterMode = b.dataset.filter;
+        b.parentElement.querySelectorAll('.seg-btn').forEach((x) => x.classList.toggle('active', x === b));
         paint();
       });
     });

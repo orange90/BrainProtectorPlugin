@@ -60,12 +60,12 @@
 
     <!-- 周趋势 -->
     <div class="panel">
-      <h2>📈 近 7 天趋势</h2>
-      <div class="week" id="weekTrend"></div>
-      <div class="legend" style="margin-top:8px;justify-content:center;">
-        <span><i class="dot" style="background:var(--bar-blue)"></i>浏览</span>
-        <span><i class="dot" style="background:var(--bar-green)"></i>创作</span>
+      <div class="panel-head">
+        <h2>📈 近 7 天趋势</h2>
+        <select id="trendMetric" class="trend-select" aria-label="选择趋势指标"></select>
       </div>
+      <div class="week" id="weekTrend"></div>
+      <div class="legend" id="weekLegend" style="margin-top:8px;justify-content:center;"></div>
     </div>
   </div>
 
