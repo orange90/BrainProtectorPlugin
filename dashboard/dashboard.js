@@ -4,17 +4,22 @@
 /* 主题偏好：'system' | 'light' | 'dark'（system 跟随操作系统） */
 let themePref = 'system';
 const themeMQ = matchMedia('(prefers-color-scheme: dark)');
+const SVG = {
+  sun:    '<svg class="ic ic-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+  moon:   '<svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>',
+  system: '<svg class="ic ic-sm" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>',
+};
 const THEME_META = {
-  system: '🌓 跟随系统',
-  light:  '☀️ 明亮',
-  dark:   '🌙 暗黑',
+  system: SVG.system + '跟随系统',
+  light:  SVG.sun + '明亮',
+  dark:   SVG.moon + '暗黑',
 };
 function resolvedDark() {
   return themePref === 'dark' || (themePref === 'system' && themeMQ.matches);
 }
 function applyTheme() {
   document.documentElement.setAttribute('data-theme', resolvedDark() ? 'dark' : 'light');
-  document.getElementById('themeBtn').textContent = THEME_META[themePref];
+  document.getElementById('themeBtn').innerHTML = THEME_META[themePref];
 }
 chrome.storage.local.get(['theme'], (res) => {
   themePref = ['system', 'light', 'dark'].includes(res.theme) ? res.theme : 'system';
@@ -107,10 +112,10 @@ function renderSummary(records, sessions) {
   }
   const top = [...siteMap.entries()].sort((a, b) => b[1] - a[1])[0];
   const cards = [
-    { lbl: '浏览总时长', val: fmtDur(browse), sub: '今日', color: 'var(--tx-primary)' },
-    { lbl: '创作总时长', val: fmtDur(create), sub: '键盘输入', color: 'var(--green)' },
-    { lbl: '使用最多', val: top ? BPCat.prettyDomain(top[0]) : '—', sub: top ? fmtDur(top[1]) : '暂无', color: 'var(--tx-primary)' },
-    { lbl: '完成专注', val: (sessions.length || 0) + ' 轮', sub: '番茄/深度', color: 'var(--bar-purple)' },
+    { lbl: '浏览总时长', val: fmtDur(browse), sub: '今日', color: 'var(--ink)' },
+    { lbl: '创作总时长', val: fmtDur(create), sub: '键盘输入', color: 'var(--teal)' },
+    { lbl: '使用最多', val: top ? BPCat.prettyDomain(top[0]) : '—', sub: top ? fmtDur(top[1]) : '暂无', color: 'var(--ink)' },
+    { lbl: '完成专注', val: (sessions.length || 0) + ' 轮', sub: '番茄/深度', color: 'var(--steel)' },
   ];
   document.getElementById('summaryCards').innerHTML = cards.map((c) =>
     `<div class="card"><div class="lbl">${c.lbl}</div><div class="val" style="color:${c.color}">${esc(c.val)}</div><div class="sub">${esc(c.sub)}</div></div>`
@@ -125,8 +130,8 @@ function renderBrowseVsCreate(records) {
   }
   const total = browse + create || 1;
   document.getElementById('bvcBar').innerHTML =
-    `<div class="split-seg" style="width:${(browse / total * 100)}%;background:var(--bar-blue)">${browse / total > 0.12 ? fmtDur(browse) : ''}</div>` +
-    `<div class="split-seg" style="width:${(create / total * 100)}%;background:var(--bar-green)">${create / total > 0.12 ? fmtDur(create) : ''}</div>`;
+    `<div class="split-seg" style="width:${(browse / total * 100)}%;background:var(--steel)">${browse / total > 0.12 ? fmtDur(browse) : ''}</div>` +
+    `<div class="split-seg" style="width:${(create / total * 100)}%;background:var(--teal)">${create / total > 0.12 ? fmtDur(create) : ''}</div>`;
   document.getElementById('bvcBrowse').textContent = fmtDur(browse);
   document.getElementById('bvcCreate').textContent = fmtDur(create);
 }
@@ -139,7 +144,7 @@ function renderSiteRank(records) {
   const max = Math.max(1, ...list.map((x) => x[1]));
   el.innerHTML = list.map(([domain, sec]) => {
     const pct = Math.round(sec / max * 100);
-    const c = domain.includes('zhihu') ? 'var(--bar-purple)' : 'var(--bar-blue)';
+    const c = domain.includes('zhihu') ? 'var(--steel)' : 'var(--neutral-bar)';
     return `<div class="row"><span class="name">${esc(BPCat.prettyDomain(domain))}</span>
       <div class="track"><div class="fill" style="width:${pct}%;background:${c}"></div></div>
       <span class="val">${fmtDur(sec)}</span></div>`;
@@ -154,7 +159,7 @@ function renderCatDist(records, categories) {
   const total = list.reduce((s, x) => s + x[1], 0) || 1;
   el.innerHTML = list.map(([cat, sec]) => {
     const pct = Math.round(sec / total * 100);
-    const color = (categories[cat] && categories[cat].color) || 'var(--tx-muted)';
+    const color = (categories[cat] && categories[cat].color) || 'var(--ink-3)';
     return `<div class="row"><span class="name">${esc(cat)}</span>
       <div class="track"><div class="fill" style="width:${pct}%;background:${color}"></div></div>
       <span class="val">${fmtDur(sec)} · ${pct}%</span></div>`;
@@ -171,7 +176,7 @@ function renderZhihuTopics(weekRecords) {
   }
   const list = [...map.entries()].sort((a, b) => b[1].sec - a[1].sec).slice(0, 15);
   const el = document.getElementById('zhihuTopics');
-  if (!list.length) { el.innerHTML = '<div class="empty">本周暂无知乎深度记录 🔍</div>'; return; }
+  if (!list.length) { el.innerHTML = '<div class="empty">本周暂无知乎深度记录</div>'; return; }
   el.innerHTML = list.map(([title, v]) => {
     const tags = (v.tags || []).slice(0, 3).map((t) => `<span class="tag">${esc(t)}</span>`).join('');
     return `<div class="topic-item">
@@ -185,12 +190,12 @@ function renderCreateDetail(records) {
   const map = aggBy(records.filter((r) => r.time_type === 'creating'), (r) => r.domain);
   const list = [...map.entries()].sort((a, b) => b[1] - a[1]);
   const el = document.getElementById('createDetail');
-  if (!list.length) { el.innerHTML = '<div class="empty">今日暂无创作记录 ✍️</div>'; return; }
+  if (!list.length) { el.innerHTML = '<div class="empty">今日暂无创作记录</div>'; return; }
   const max = Math.max(1, ...list.map((x) => x[1]));
   el.innerHTML = list.map(([domain, sec]) => {
     const pct = Math.round(sec / max * 100);
     return `<div class="row"><span class="name">${esc(BPCat.prettyDomain(domain))}</span>
-      <div class="track"><div class="fill" style="width:${pct}%;background:var(--bar-green)"></div></div>
+      <div class="track"><div class="fill" style="width:${pct}%;background:var(--teal)"></div></div>
       <span class="val">${fmtDur(sec)}</span></div>`;
   }).join('');
 }
@@ -247,15 +252,15 @@ function renderWeekTrend(weekRecords) {
       const ch = Math.round(createByDay[d] / max * 100);
       return `<div class="week-col">
         <div class="week-bars">
-          <div class="week-bar" style="height:${bh}%;background:var(--bar-blue)" title="浏览 ${fmtDur(browseByDay[d])}"></div>
-          <div class="week-bar" style="height:${ch}%;background:var(--bar-green)" title="创作 ${fmtDur(createByDay[d])}"></div>
+          <div class="week-bar" style="height:${bh}%;background:var(--steel)" title="浏览 ${fmtDur(browseByDay[d])}"></div>
+          <div class="week-bar" style="height:${ch}%;background:var(--teal)" title="创作 ${fmtDur(createByDay[d])}"></div>
         </div>
         <div class="week-lbl">${dayLabel(d)}</div>
       </div>`;
     }).join('');
     if (legend) legend.innerHTML =
-      '<span><i class="dot" style="background:var(--bar-blue)"></i>浏览</span>' +
-      '<span><i class="dot" style="background:var(--bar-green)"></i>创作</span>';
+      '<span><i class="dot" style="background:var(--steel)"></i>浏览</span>' +
+      '<span><i class="dot" style="background:var(--teal)"></i>创作</span>';
     return;
   }
 
@@ -268,7 +273,7 @@ function renderWeekTrend(weekRecords) {
     byDay[r.day] += r.duration_seconds || 0;
   }
   const max = Math.max(1, ...days.map((d) => byDay[d]));
-  const color = domain.includes('zhihu') ? 'var(--bar-purple)' : 'var(--bar-blue)';
+  const color = domain.includes('zhihu') ? 'var(--steel)' : 'var(--neutral-bar)';
   document.getElementById('weekTrend').innerHTML = days.map((d) => {
     const h = Math.round(byDay[d] / max * 100);
     return `<div class="week-col">

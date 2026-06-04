@@ -28,14 +28,26 @@
   let siteGroups = null;
   const expanded = new Set(); // 展开的组 key
 
-  /* 类别 → 展示用 emoji 图标（按类别分组时使用） */
-  const CATEGORY_EMOJI = {
-    '开发工具': '🛠️',
-    '视频': '🎬',
-    '社交媒体': '💬',
-    '内容社区': '📰',
-    '效率办公': '📊',
-    '其他': '🗂️',
+  /* 线性图标集（1.6px stroke，与界面统一） */
+  const I = (p, k = '') => `<svg class="ic ${k}" viewBox="0 0 24 24">${p}</svg>`;
+  const ICON = {
+    caretDown:  I('<path d="M6 9l6 6 6-6"/>', 'ic-sm'),
+    caretRight: I('<path d="M9 6l6 6-6 6"/>', 'ic-sm'),
+    globe:      I('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18z"/>'),
+    local:      I('<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/>'),
+    close:      I('<path d="M6 6l12 12M18 6L6 18"/>', 'ic-sm'),
+    stale:      '<svg class="ic ic-sm" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg>',
+    dup:        '<svg class="ic ic-sm" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>',
+  };
+
+  /* 类别 → 展示用线性图标（按类别分组时使用） */
+  const CATEGORY_ICON = {
+    '开发工具': I('<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-2.4z"/>'),
+    '视频':     I('<rect x="2" y="5" width="14" height="14" rx="2"/><path d="M16 9l6-3v12l-6-3z"/>'),
+    '社交媒体': I('<path d="M21 11.5a8 8 0 0 1-11.5 7.2L3 21l2.3-6.5A8 8 0 1 1 21 11.5z"/>'),
+    '内容社区': I('<path d="M4 4h12v16H4zM16 8h4v10a2 2 0 0 1-4 0zM7 8h6M7 12h6M7 16h4"/>'),
+    '效率办公': I('<path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="7"/><rect x="12" y="7" width="3" height="11"/><rect x="17" y="13" width="3" height="5"/>'),
+    '其他':     I('<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>'),
   };
 
   /* ── 工具 ── */
@@ -106,10 +118,10 @@
     urlCount.forEach((c) => { if (c > 1) dupTotal += c - 1; });
     const statsEl = document.getElementById('taskStats');
     if (statsEl) statsEl.textContent =
-      `共 ${total} 个标签 · ${sorted.length} 组 · ⏰陈旧 ${staleTotal} · 🔁重复 ${dupTotal}`;
+      `共 ${total} 个标签 · ${sorted.length} 组 · 陈旧 ${staleTotal} · 重复 ${dupTotal}`;
 
     const html = sorted.map(([key, g]) => renderGroup(key, g, urlCount, term)).filter(Boolean).join('');
-    container.innerHTML = html || '<div class="empty-hint">没有匹配的标签页 🔍</div>';
+    container.innerHTML = html || '<div class="empty-hint">没有匹配的标签页</div>';
     bindEvents();
   }
 
@@ -128,14 +140,14 @@
 
   function groupIcon(key, g) {
     if (groupMode === 'category') {
-      return `<span class="group-fav-emoji">${CATEGORY_EMOJI[g.label] || '🗂️'}</span>`;
+      return `<span class="group-fav-ic">${CATEGORY_ICON[g.label] || ICON.globe}</span>`;
     }
-    if (key === '__local__') return `<span class="group-fav-emoji">💻</span>`;
+    if (key === '__local__') return `<span class="group-fav-ic">${ICON.local}</span>`;
     // 按域名：复用组内任一标签页已加载的 favicon（本地数据，无需外部请求）
     const favTab = g.tabs.find((t) => t.favIconUrl && /^https?:/.test(t.favIconUrl));
     return favTab
       ? `<img class="group-fav" src="${esc(favTab.favIconUrl)}" alt="">`
-      : `<span class="group-fav-emoji">🌐</span>`;
+      : `<span class="group-fav-ic">${ICON.globe}</span>`;
   }
 
   function renderGroup(key, g, urlCount, term) {
@@ -149,8 +161,8 @@
     const open = (term || filterMode !== 'all') ? true : expanded.has(key);
 
     const badges =
-      (staleN ? `<span class="tag tag-stale">⏰ ${staleN}</span>` : '') +
-      (dupN ? `<span class="tag tag-dup">🔁 ${dupN}</span>` : '');
+      (staleN ? `<span class="tag tag-stale">${ICON.stale} ${staleN}</span>` : '') +
+      (dupN ? `<span class="tag tag-dup">${ICON.dup} ${dupN}</span>` : '');
     const actions =
       (staleN ? `<button class="mini-btn" data-closestale="${esc(key)}">关闭陈旧 (${staleN})</button>` : '') +
       (dupN ? `<button class="mini-btn" data-closedup="${esc(key)}">关闭重复 (${dupN})</button>` : '');
@@ -159,7 +171,7 @@
 
     return `<div class="task-group">
       <div class="group-head" data-toggle="${esc(key)}">
-        <span class="group-caret">${open ? '▾' : '▸'}</span>
+        <span class="group-caret">${open ? ICON.caretDown : ICON.caretRight}</span>
         ${groupIcon(key, g)}
         <span class="group-name">${esc(g.label)}</span>
         <span class="group-count">${rows.length === g.tabs.length ? g.tabs.length : rows.length + '/' + g.tabs.length}</span>
@@ -176,10 +188,10 @@
     const stale = isStale(t);
     const fav = (t.favIconUrl && /^https?:/.test(t.favIconUrl))
       ? `<img class="tab-fav" src="${esc(t.favIconUrl)}" alt="">`
-      : `<span class="tab-fav-emoji">🌐</span>`;
+      : `<span class="tab-fav-ic">${ICON.globe}</span>`;
     const tags =
-      (stale ? `<span class="tag tag-stale">⏰ ${staleHours(t)}h</span>` : '') +
-      (dup ? `<span class="tag tag-dup">🔁 重复</span>` : '') +
+      (stale ? `<span class="tag tag-stale">${ICON.stale} ${staleHours(t)}h</span>` : '') +
+      (dup ? `<span class="tag tag-dup">${ICON.dup} 重复</span>` : '') +
       (t.active ? `<span class="tag tag-active">当前</span>` : '');
     return `<div class="tab-row" data-tabid="${t.id}" data-winid="${t.windowId}">
       ${fav}
@@ -187,7 +199,7 @@
         <div class="tab-title">${esc(t.title || t.url || '')}</div>
         <div class="tab-sub">${esc(BPCat.prettyDomain(domain) || domain || '—')}${tags}</div>
       </div>
-      <button class="tab-close" data-close="${t.id}" title="关闭此标签">✕</button>
+      <button class="tab-close" data-close="${t.id}" title="关闭此标签">${ICON.close}</button>
     </div>`;
   }
 
@@ -286,7 +298,7 @@
         } catch (e) { console.warn('建组失败', cat, e); }
       }
     }
-    toast(made ? `已创建 ${made} 个 Chrome 标签组 ✨` : '没有可分组的标签（每类需 ≥2 个）');
+    toast(made ? `已创建 ${made} 个 Chrome 标签组` : '没有可分组的标签（每类需 ≥2 个）');
     await refresh();
   }
 
@@ -298,7 +310,7 @@
       siteGroups = rules.siteGroups;
       allTabs = await chrome.tabs.query({});
     } catch (e) {
-      if (container) container.innerHTML = '<div class="empty-hint">无法读取标签页，请检查权限 ⚠️</div>';
+      if (container) container.innerHTML = '<div class="empty-hint">无法读取标签页，请检查权限</div>';
       return;
     }
     paint();
