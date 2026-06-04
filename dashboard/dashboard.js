@@ -32,6 +32,11 @@ document.getElementById('themeBtn').addEventListener('click', () => {
   chrome.storage.local.set({ theme: themePref });
 });
 document.getElementById('optionsBtn').addEventListener('click', () => chrome.runtime.openOptionsPage());
+document.getElementById('homeBtn').addEventListener('click', () => {
+  // 从新标签页跳转而来时直接后退；否则打开新标签页
+  if (history.length > 1) history.back();
+  else location.href = '../newtab/newtab.html';
+});
 
 function fmtDur(sec) {
   sec = Math.round(sec || 0);

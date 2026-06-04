@@ -175,18 +175,68 @@ window.BPUtil = { escapeHtml, fmtDur };
 /* ════════════════════════════════════════
    Tab 切换
    ════════════════════════════════════════ */
+const TAB_ORDER = ['time', 'task', 'state'];
 function setupTabs() {
-  const btns = document.querySelectorAll('.tab-btn');
+  const nav = document.getElementById('tabNav');
+  const indicator = document.getElementById('tabIndicator');
+  const btns = [...document.querySelectorAll('.tab-btn')];
   const panes = document.querySelectorAll('.tab-pane');
-  function activate(name) {
+  let current = 'time';
+
+  function moveIndicator(animate) {
+    const btn = btns.find((b) => b.dataset.tab === current);
+    if (!btn) return;
+    if (!animate) indicator.style.transition = 'none';
+    indicator.style.width = btn.offsetWidth + 'px';
+    indicator.style.transform = `translateX(${btn.offsetLeft}px)`;
+    if (!animate) { void indicator.offsetWidth; indicator.style.transition = ''; }
+  }
+
+  function activate(name, persist = true) {
+    if (!TAB_ORDER.includes(name)) return;
+    current = name;
     btns.forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
     panes.forEach((p) => p.classList.toggle('active', p.id === 'pane-' + name));
-    chrome.storage.local.set({ activeTab: name });
+    moveIndicator(true);
+    if (persist) chrome.storage.local.set({ activeTab: name });
     if (name === 'task' && window.BPTasks) window.BPTasks.render();
   }
+
   btns.forEach((b) => b.addEventListener('click', () => activate(b.dataset.tab)));
+
+  // 双指横向滑动（触控板 wheel.deltaX / 触摸屏 swipe）切换 Tab
+  let wheelCooldown = 0, wheelAccum = 0, wheelTimer = null;
+  window.addEventListener('wheel', (e) => {
+    if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return; // 仅响应横向手势
+    const now = Date.now();
+    if (now < wheelCooldown) return;
+    wheelAccum += e.deltaX;
+    clearTimeout(wheelTimer);
+    wheelTimer = setTimeout(() => { wheelAccum = 0; }, 220);
+    if (Math.abs(wheelAccum) < 60) return;
+    const dir = wheelAccum > 0 ? 1 : -1;
+    const idx = TAB_ORDER.indexOf(current);
+    const next = TAB_ORDER[idx + dir];
+    wheelAccum = 0;
+    if (next) { wheelCooldown = now + 520; activate(next); }
+  }, { passive: true });
+
+  // 触摸屏左右滑动
+  let tx = 0, ty = 0;
+  window.addEventListener('touchstart', (e) => { tx = e.touches[0].clientX; ty = e.touches[0].clientY; }, { passive: true });
+  window.addEventListener('touchend', (e) => {
+    const dx = e.changedTouches[0].clientX - tx, dy = e.changedTouches[0].clientY - ty;
+    if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy)) return;
+    const idx = TAB_ORDER.indexOf(current);
+    const next = TAB_ORDER[idx + (dx < 0 ? 1 : -1)];
+    if (next) activate(next);
+  }, { passive: true });
+
+  window.addEventListener('resize', () => moveIndicator(false));
+
   chrome.storage.local.get(['activeTab'], (res) => {
-    if (res.activeTab) activate(res.activeTab);
+    activate(TAB_ORDER.includes(res.activeTab) ? res.activeTab : 'time', false);
+    requestAnimationFrame(() => moveIndicator(false));
   });
 }
 
