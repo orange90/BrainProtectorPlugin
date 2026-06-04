@@ -131,28 +131,29 @@
     return !!editable;
   }
 
-  let editorCreating = false;
+  let editorLastPing = 0;
   let editorTimer = null;
 
-  // 编辑器内键盘输入 = 创作；停止 2 分钟切回浏览
+  // 编辑器内键盘输入 = 创作；每 8s 重发一次（自愈），停止 2 分钟切回浏览
   document.addEventListener('keydown', (e) => {
     if (!detectZhihuEditor()) return;
     if (e.key && e.key.length > 1 && !['Backspace', 'Delete'].includes(e.key)) return;
-    if (!editorCreating) {
-      editorCreating = true;
+    const now = Date.now();
+    if (now - editorLastPing > 8000) {
+      editorLastPing = now;
       send({ type: 'START_CREATING', source: 'zhihu-editor' });
     }
     clearTimeout(editorTimer);
     editorTimer = setTimeout(() => {
-      editorCreating = false;
+      editorLastPing = 0;
       send({ type: 'STOP_CREATING', source: 'zhihu-editor' });
     }, 2 * 60 * 1000);
   }, true);
 
   // 编辑器消失（提交/关闭）时结束创作
   new MutationObserver(() => {
-    if (editorCreating && !detectZhihuEditor()) {
-      editorCreating = false;
+    if (editorLastPing && !detectZhihuEditor()) {
+      editorLastPing = 0;
       clearTimeout(editorTimer);
       send({ type: 'STOP_CREATING', source: 'zhihu-editor' });
     }

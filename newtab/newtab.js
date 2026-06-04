@@ -38,6 +38,17 @@ function fmtDur(sec) {
   return Math.floor(m / 60) + 'h ' + (m % 60) + 'm';
 }
 
+function getLive() {
+  return new Promise((resolve) => {
+    try {
+      chrome.runtime.sendMessage({ type: 'GET_LIVE' }, (res) => {
+        if (chrome.runtime.lastError) return resolve(null);
+        resolve(res && res.live);
+      });
+    } catch (e) { resolve(null); }
+  });
+}
+
 async function renderTimeDashboard() {
   let records = [];
   try {
@@ -46,24 +57,27 @@ async function renderTimeDashboard() {
     records = [];
   }
   const { categories } = await BPCat.getRules();
+  const live = await getLive();
 
   // 聚合
   const siteMap = new Map();   // domain -> {browse, create}
   const zhihuCat = new Map();  // category -> seconds
   let totalBrowse = 0, totalCreate = 0;
 
-  for (const r of records) {
-    const dur = r.duration_seconds || 0;
-    if (!siteMap.has(r.domain)) siteMap.set(r.domain, { browse: 0, create: 0 });
-    const s = siteMap.get(r.domain);
-    if (r.time_type === 'creating') { s.create += dur; totalCreate += dur; }
+  const tally = (domain, time_type, category, dur) => {
+    if (!dur) return;
+    if (!siteMap.has(domain)) siteMap.set(domain, { browse: 0, create: 0 });
+    const s = siteMap.get(domain);
+    if (time_type === 'creating') { s.create += dur; totalCreate += dur; }
     else { s.browse += dur; totalBrowse += dur; }
-
-    if (r.domain === 'zhihu.com' || (r.domain && r.domain.endsWith('zhihu.com'))) {
-      const cat = r.category || '未分类';
-      zhihuCat.set(cat, (zhihuCat.get(cat) || 0) + dur);
+    if (domain === 'zhihu.com' || (domain && domain.endsWith('zhihu.com'))) {
+      zhihuCat.set(category || '未分类', (zhihuCat.get(category || '未分类') || 0) + dur);
     }
-  }
+  };
+
+  for (const r of records) tally(r.domain, r.time_type, r.category, r.duration_seconds || 0);
+  // 合并进行中的活跃段（心跳之外尚未落盘的最后几十秒）
+  if (live && live.elapsed > 0) tally(live.domain, live.time_type, live.category, live.elapsed);
 
   // 指标条
   document.getElementById('tdTotalBrowse').textContent = totalBrowse ? fmtDur(totalBrowse) : '0m';
@@ -367,8 +381,8 @@ async function init() {
   updateCogBars();
   updateInsights();
   renderTimeDashboard();
-  // 数据可能在打开期间被后台更新，定时刷新
-  setInterval(renderTimeDashboard, 30000);
+  // 数据可能在打开期间被后台更新，定时刷新（含进行中活跃段的实时合并）
+  setInterval(renderTimeDashboard, 5000);
 }
 
 document.addEventListener('DOMContentLoaded', init);
