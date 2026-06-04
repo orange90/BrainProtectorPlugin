@@ -4,20 +4,29 @@
 /* ════════════════════════════════════════
    主题
    ════════════════════════════════════════ */
+/* 线性图标（与界面统一的 1.6px stroke 风格） */
+const SVG = {
+  sun:    '<svg class="ic ic-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+  moon:   '<svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>',
+  system: '<svg class="ic ic-sm" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>',
+  play:   '<svg class="ic ic-fill" viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></svg>',
+  pause:  '<svg class="ic ic-fill" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>',
+};
+
 /* 主题偏好：'system' | 'light' | 'dark'（system 跟随操作系统） */
 let themePref = 'system';
 const themeMQ = matchMedia('(prefers-color-scheme: dark)');
 const THEME_META = {
-  system: { icon: '🌓', label: '跟随系统' },
-  light:  { icon: '☀️', label: '明亮' },
-  dark:   { icon: '🌙', label: '暗黑' },
+  system: { icon: SVG.system, label: '跟随系统' },
+  light:  { icon: SVG.sun,    label: '明亮' },
+  dark:   { icon: SVG.moon,   label: '暗黑' },
 };
 function resolvedDark() {
   return themePref === 'dark' || (themePref === 'system' && themeMQ.matches);
 }
 function applyTheme() {
   document.documentElement.setAttribute('data-theme', resolvedDark() ? 'dark' : 'light');
-  document.getElementById('themeBtnIcon').textContent = THEME_META[themePref].icon;
+  document.getElementById('themeBtnIcon').innerHTML = THEME_META[themePref].icon;
   document.getElementById('themeBtnLabel').textContent = THEME_META[themePref].label;
 }
 function toggleTheme() {
@@ -100,8 +109,8 @@ async function renderTimeDashboard() {
   const wasteEl = document.getElementById('tdWasteTime');
   if (wasteThreshold > 0) {
     const over = wasteMin - wasteThreshold;
-    document.getElementById('tdWasteSub').textContent = over > 0 ? `超出目标 ${over}m ⚠️` : `目标 ${wasteThreshold}m 未超`;
-    wasteEl.style.color = over > 0 ? 'var(--red)' : 'var(--green)';
+    document.getElementById('tdWasteSub').textContent = over > 0 ? `超出目标 ${over}m` : `目标 ${wasteThreshold}m 未超`;
+    wasteEl.style.color = over > 0 ? 'var(--crim)' : 'var(--teal)';
   } else {
     document.getElementById('tdWasteSub').textContent = '知乎话题';
   }
@@ -114,11 +123,11 @@ async function renderTimeDashboard() {
   const maxB = Math.max(1, ...sites.map((s) => s.browse));
   const siteRows = document.getElementById('siteRows');
   if (!sites.length || !totalBrowse) {
-    siteRows.innerHTML = '<div class="empty-hint">今日暂无浏览记录，去逛逛吧 🌱</div>';
+    siteRows.innerHTML = '<div class="empty-hint">今日暂无浏览记录</div>';
   } else {
     siteRows.innerHTML = sites.filter((s) => s.browse > 0).map((s) => {
       const pct = Math.round((s.browse / maxB) * 100);
-      const c = s.domain.includes('zhihu') ? 'var(--bar-purple)' : 'var(--bar-blue)';
+      const c = s.domain.includes('zhihu') ? 'linear-gradient(90deg,var(--steel),var(--steel-2))' : 'var(--neutral-bar)';
       return `<div class="bar-row">
         <span class="bar-name">${escapeHtml(s.name)}</span>
         <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${c}"></div></div>
@@ -134,7 +143,7 @@ async function renderTimeDashboard() {
     .filter((c) => zhihuCat.has(c))
     .map((c) => ({ cat: c, sec: zhihuCat.get(c), color: categories[c].color, threshold: categories[c].alert_threshold_minutes || 0 }));
   if (!zhihuEntries.length) {
-    zhihuRows.innerHTML = '<div class="empty-hint">暂无知乎浏览，深度感知待激活 🔍</div>';
+    zhihuRows.innerHTML = '<div class="empty-hint">暂无知乎浏览，深度感知待激活</div>';
   } else {
     const maxZ = Math.max(1, ...zhihuEntries.map((z) => z.sec));
     zhihuRows.innerHTML = zhihuEntries.map((z) => {
@@ -144,7 +153,7 @@ async function renderTimeDashboard() {
       return `<div class="bar-row">
         <span class="bar-name">${escapeHtml(z.cat)}</span>
         <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${z.color}"></div></div>
-        <span class="bar-val${over ? ' warn' : ''}">${fmtDur(z.sec)}${over ? ' ⚠️' : ''}</span>
+        <span class="bar-val${over ? ' warn' : ''}">${fmtDur(z.sec)}</span>
       </div>`;
     }).join('');
   }
@@ -153,7 +162,7 @@ async function renderTimeDashboard() {
   const creators = sites.filter((s) => s.create > 0).sort((a, b) => b.create - a.create);
   document.getElementById('createRows').innerHTML = creators.length
     ? creators.map((s) => `<div class="create-badge"><span class="site-name">${escapeHtml(s.name)}</span><span class="site-time">${fmtDur(s.create)}</span></div>`).join('')
-    : '<span style="font-size:12px;color:var(--tx-muted)">今日暂无创作记录</span>';
+    : '<span class="empty-hint">今日暂无创作记录</span>';
 }
 
 function escapeHtml(str) {
@@ -261,9 +270,9 @@ function updateTimerDisplay() {
   document.getElementById('timerDisplay').textContent = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
 }
 
-function setPlayIcon(ic) {
+function setPlayIcon(kind) {
   const el = document.querySelector('#startBtn .play-ic');
-  if (el) el.textContent = ic;
+  if (el) el.innerHTML = kind === 'pause' ? SVG.pause : SVG.play;
 }
 
 function toggleTimer() {
@@ -271,18 +280,18 @@ function toggleTimer() {
     clearInterval(interval); running = false;
     document.getElementById('startLabel').textContent = '继续';
     document.getElementById('timerLabel').textContent = '已暂停';
-    setPlayIcon('▶');
+    setPlayIcon('play');
   } else {
     running = true;
     document.getElementById('startLabel').textContent = '暂停';
-    setPlayIcon('⏸');
-    document.getElementById('timerLabel').textContent = mode === 'pomodoro' ? '专注中 🍅' : mode === 'deep' ? '深度工作中 🧠' : '专注中 ⚙️';
+    setPlayIcon('pause');
+    document.getElementById('timerLabel').textContent = mode === 'pomodoro' ? '专注中' : mode === 'deep' ? '深度工作中' : '自定义专注中';
     interval = setInterval(() => {
       if (timeLeft <= 0) {
         clearInterval(interval); running = false;
         document.getElementById('startLabel').textContent = '开始';
-        setPlayIcon('▶');
-        document.getElementById('timerLabel').textContent = '✅ 完成！休息一下';
+        setPlayIcon('play');
+        document.getElementById('timerLabel').textContent = '完成 · 休息一下';
         document.getElementById('timerProgress').style.width = '100%';
         saveSession();
         return;
@@ -300,7 +309,7 @@ function resetTimer() {
   updateTimerDisplay();
   document.getElementById('timerProgress').style.width = '0%';
   document.getElementById('startLabel').textContent = '开始';
-  setPlayIcon('▶');
+  setPlayIcon('play');
   document.getElementById('timerLabel').textContent = '待开始';
   document.getElementById('focusScore').textContent = '—';
 }
@@ -323,13 +332,13 @@ function updateFocusScore() {
   const score = Math.max(0, Math.round(frac * 100) - penalty);
   const el = document.getElementById('focusScore');
   el.textContent = score;
-  el.style.color = score >= 70 ? 'var(--green)' : score >= 40 ? 'var(--amber)' : 'var(--red)';
+  el.style.color = score >= 70 ? 'var(--teal)' : score >= 40 ? 'var(--amber)' : 'var(--crim)';
 }
 
 function renderSwitchLog() {
   const ul = document.getElementById('switchLog');
   if (!switchLog.length) {
-    ul.innerHTML = '<li style="font-size:11px;color:var(--tx-muted);padding:6px 0;">暂无记录</li>';
+    ul.innerHTML = '<li class="log-empty">暂无记录</li>';
     return;
   }
   const recent = switchLog.slice(-5).reverse();
@@ -367,7 +376,7 @@ const cogMetrics = [
 function updateCogBars() {
   document.getElementById('cogBars').innerHTML = cogMetrics.map((m) => {
     const val = Math.min(Math.round(m.get()), 100);
-    const c = val < 30 ? 'var(--bar-green)' : val < 60 ? 'var(--bar-amber)' : 'var(--bar-red)';
+    const c = val < 30 ? 'var(--teal)' : val < 60 ? 'var(--amber)' : 'var(--crim)';
     return `<div class="cog-row">
       <span class="cog-lbl">${m.label}</span>
       <div class="cog-track"><div class="cog-fill" style="width:${val}%;background:${c}"></div></div>
@@ -379,22 +388,22 @@ function updateCogBars() {
 function updateInsights() {
   const msgs = [];
   if (!switchLog.length && !checkedHarms.size)
-    msgs.push({ t: 'ok', x: '一切正常 — 保持当前状态，继续深度工作 💪' });
+    msgs.push({ t: 'ok', x: '一切正常 — 保持当前状态，继续深度工作。' });
   if (switchLog.length >= 3)
-    msgs.push({ t: 'danger', x: `⚡ 已切换 ${switchLog.length} 次。每次任务切换平均需 23 分钟恢复专注。建议休息后重开。` });
+    msgs.push({ t: 'danger', x: `已切换 ${switchLog.length} 次。每次任务切换平均需 23 分钟恢复专注，建议休息后重开。` });
   else if (switchLog.length)
-    msgs.push({ t: 'warn', x: `切换了 ${switchLog.length} 次 — 尚可控。关闭无关标签页，手机翻过来放。` });
-  if (checkedHarms.has('h1')) msgs.push({ t: 'danger', x: '📱 查看手机平均消耗 20 分钟专注窗口。' });
-  if (checkedHarms.has('h4')) msgs.push({ t: 'danger', x: '🧠 超 90 分钟未休息，前额叶资源耗尽 — 立刻走两分钟。' });
-  if (checkedHarms.has('h8')) msgs.push({ t: 'danger', x: '😴 睡眠不足使记忆巩固效率下降 40%+。今天保护已有成果。' });
-  if (checkedHarms.has('h3')) msgs.push({ t: 'warn', x: '🎧 语言类内容与语言处理中枢竞争，换无词音乐或白噪音。' });
-  if (checkedHarms.has('h5')) msgs.push({ t: 'warn', x: '🔔 通知激活定向注意力网络，现在进入勿扰模式。' });
-  if (checkedHarms.has('h2')) msgs.push({ t: 'danger', x: '🪟 多窗口 = 隐性持续切换，只留一个任务界面。' });
-  if (checkedHarms.has('h6')) msgs.push({ t: 'danger', x: '💬 实时回消息让大脑始终在响应模式，设固定回复时段。' });
-  if (checkedHarms.has('h7')) msgs.push({ t: 'warn', x: '🥗 跳过正餐认知表现下降 10-15%，去喝点水。' });
+    msgs.push({ t: 'warn', x: `切换了 ${switchLog.length} 次 — 尚可控。关闭无关标签页，把手机翻到屏幕朝下。` });
+  if (checkedHarms.has('h1')) msgs.push({ t: 'danger', x: '查看手机平均消耗 20 分钟专注窗口。' });
+  if (checkedHarms.has('h4')) msgs.push({ t: 'danger', x: '超 90 分钟未休息，前额叶资源耗尽 — 立刻起身走两分钟。' });
+  if (checkedHarms.has('h8')) msgs.push({ t: 'danger', x: '睡眠不足使记忆巩固效率下降 40% 以上，今天注意保护已有成果。' });
+  if (checkedHarms.has('h3')) msgs.push({ t: 'warn', x: '语言类内容与语言处理中枢竞争，换成无词音乐或白噪音。' });
+  if (checkedHarms.has('h5')) msgs.push({ t: 'warn', x: '通知会激活定向注意力网络，现在进入勿扰模式。' });
+  if (checkedHarms.has('h2')) msgs.push({ t: 'danger', x: '多窗口等于隐性持续切换，只留一个任务界面。' });
+  if (checkedHarms.has('h6')) msgs.push({ t: 'danger', x: '实时回消息让大脑始终处于响应模式，设固定回复时段。' });
+  if (checkedHarms.has('h7')) msgs.push({ t: 'warn', x: '跳过正餐会让认知表现下降 10-15%，去补充些水分。' });
   document.getElementById('insights').innerHTML =
     msgs.map((m) => `<div class="insight-box insight-${m.t}">${m.x}</div>`).join('') ||
-    '<div class="insight-box insight-ok">一切正常 — 保持当前状态，继续深度工作 💪</div>';
+    '<div class="insight-box insight-ok">一切正常 — 保持当前状态，继续深度工作。</div>';
 }
 
 /* ════════════════════════════════════════

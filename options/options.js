@@ -7,7 +7,7 @@ let siteGroups = {};
 function showStatus(msg, isErr) {
   const el = document.getElementById('status');
   el.textContent = msg;
-  el.style.color = isErr ? 'var(--red)' : 'var(--green)';
+  el.style.color = isErr ? 'var(--crim)' : 'var(--teal)';
   if (msg) setTimeout(() => { el.textContent = ''; }, 2600);
 }
 
@@ -27,7 +27,7 @@ function renderCategories() {
       <td><input type="text" class="kw" value="${esc(kw)}" ${isDefault ? 'placeholder="兜底分类，无需关键词" disabled' : ''} /></td>
       <td><input type="color" class="color" value="${toHex(color)}" /></td>
       <td><input type="number" class="num thr" min="0" value="${thr}" /></td>
-      <td>${isDefault ? '' : '<button class="btn-x" data-del="' + esc(name) + '" title="删除">✕</button>'}</td>
+      <td>${isDefault ? '' : '<button class="btn-x" data-del="' + esc(name) + '" title="删除"><svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>'}</td>
     </tr>`;
   }).join('');
   body.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', () => {
@@ -81,7 +81,7 @@ function save() {
   // 确保「未分类」存在
   if (!categories['未分类']) categories['未分类'] = { keywords: [], color: '#9a9a92', alert_threshold_minutes: 0 };
   chrome.storage.local.set({ categories, siteGroups }, () => {
-    showStatus('✓ 已保存');
+    showStatus('已保存');
   });
 }
 
@@ -91,7 +91,7 @@ function resetDefaults() {
   siteGroups = JSON.parse(JSON.stringify(BPCat.DEFAULT_SITE_GROUPS));
   renderCategories();
   renderSiteGroups();
-  chrome.storage.local.set({ categories, siteGroups }, () => showStatus('✓ 已恢复默认'));
+  chrome.storage.local.set({ categories, siteGroups }, () => showStatus('已恢复默认'));
 }
 
 function addCategory() {
@@ -124,7 +124,7 @@ async function exportData() {
     a.download = 'brain-protector-' + BPDB.todayKey() + '.json';
     a.click();
     URL.revokeObjectURL(url);
-    showStatus('✓ 已导出 ' + records.length + ' 条记录');
+    showStatus('已导出 ' + records.length + ' 条记录');
   } catch (e) {
     showStatus('导出失败：' + e.message, true);
   }
@@ -134,7 +134,7 @@ async function clearData() {
   if (!confirm('确定永久清空全部时间记录与专注会话？此操作不可恢复。')) return;
   try {
     await BPDB.clearAll();
-    showStatus('✓ 已清空全部数据');
+    showStatus('已清空全部数据');
   } catch (e) {
     showStatus('清空失败：' + e.message, true);
   }
