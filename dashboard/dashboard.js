@@ -1,17 +1,30 @@
 /* global BPDB, BPCat */
 'use strict';
 
-let dark = false;
+/* 主题偏好：'system' | 'light' | 'dark'（system 跟随操作系统） */
+let themePref = 'system';
+const themeMQ = matchMedia('(prefers-color-scheme: dark)');
+const THEME_META = {
+  system: '🌓 跟随系统',
+  light:  '☀️ 明亮',
+  dark:   '🌙 暗黑',
+};
+function resolvedDark() {
+  return themePref === 'dark' || (themePref === 'system' && themeMQ.matches);
+}
 function applyTheme() {
-  document.documentElement.setAttribute('data-theme', dark ? 'dark' : '');
-  document.getElementById('themeBtn').textContent = dark ? '☀️ 白天' : '🌙 暗黑';
+  document.documentElement.setAttribute('data-theme', resolvedDark() ? 'dark' : 'light');
+  document.getElementById('themeBtn').textContent = THEME_META[themePref];
 }
 chrome.storage.local.get(['theme'], (res) => {
-  dark = res.theme === 'dark' || (!res.theme && matchMedia('(prefers-color-scheme: dark)').matches);
+  themePref = ['system', 'light', 'dark'].includes(res.theme) ? res.theme : 'system';
   applyTheme();
 });
+themeMQ.addEventListener('change', () => { if (themePref === 'system') applyTheme(); });
 document.getElementById('themeBtn').addEventListener('click', () => {
-  dark = !dark; applyTheme(); chrome.storage.local.set({ theme: dark ? 'dark' : 'light' });
+  themePref = themePref === 'system' ? 'light' : themePref === 'light' ? 'dark' : 'system';
+  applyTheme();
+  chrome.storage.local.set({ theme: themePref });
 });
 document.getElementById('optionsBtn').addEventListener('click', () => chrome.runtime.openOptionsPage());
 
@@ -30,6 +43,8 @@ function daysAgoKey(n) {
 }
 
 let _categories = null;
+let _weekRecords = [];          // 缓存本周记录，供趋势筛选重绘
+let trendMetric = '__bvc__';    // '__bvc__' = 浏览 vs 创作；否则为某个域名
 
 /** 取后台进行中的活跃段（心跳之外的最后几十秒），合成一条临时记录 */
 async function fetchLiveRecord(today) {
@@ -67,6 +82,8 @@ async function main() {
   renderCatDist(todayRecords, categories);
   renderZhihuTopics(weekRecords);
   renderCreateDetail(todayRecords);
+  _weekRecords = weekRecords;
+  populateTrendSelect(weekRecords);
   renderWeekTrend(weekRecords);
 }
 
@@ -178,31 +195,91 @@ function renderCreateDetail(records) {
   }).join('');
 }
 
+/* 本周访问域名 Top 10 → 趋势筛选选项 */
+function populateTrendSelect(weekRecords) {
+  const sel = document.getElementById('trendMetric');
+  if (!sel) return;
+  const map = aggBy(weekRecords, (r) => r.domain);
+  const topSites = [...map.entries()].filter(([d]) => d).sort((a, b) => b[1] - a[1]).slice(0, 10);
+
+  // 若当前所选域名已不在本周数据里，回退到默认
+  if (trendMetric !== '__bvc__' && !topSites.some(([d]) => d === trendMetric)) trendMetric = '__bvc__';
+
+  // 仅当域名列表变化时才重建（避免每 2s 刷新打断正在展开的下拉框）
+  const sig = topSites.map(([d]) => d).join('|');
+  if (sel._sig !== sig) {
+    sel.innerHTML = ['<option value="__bvc__">浏览 vs 创作</option>']
+      .concat(topSites.map(([domain], i) =>
+        `<option value="${esc(domain)}">Top${i + 1} · ${esc(BPCat.prettyDomain(domain))}</option>`))
+      .join('');
+    sel._sig = sig;
+  }
+  sel.value = trendMetric;
+
+  if (!sel._bound) {
+    sel.addEventListener('change', () => {
+      trendMetric = sel.value;
+      renderWeekTrend(_weekRecords);
+    });
+    sel._bound = true;
+  }
+}
+
 function renderWeekTrend(weekRecords) {
   const days = [];
   for (let i = 6; i >= 0; i--) days.push(daysAgoKey(i));
-  const browseByDay = {}, createByDay = {};
-  days.forEach((d) => { browseByDay[d] = 0; createByDay[d] = 0; });
-  for (const r of weekRecords) {
-    if (!(r.day in browseByDay)) continue;
-    if (r.time_type === 'creating') createByDay[r.day] += r.duration_seconds || 0;
-    else browseByDay[r.day] += r.duration_seconds || 0;
-  }
-  const max = Math.max(1, ...days.map((d) => Math.max(browseByDay[d], createByDay[d])));
   const wk = ['日', '一', '二', '三', '四', '五', '六'];
+  const dayLabel = (d) => (d === BPDB.todayKey()) ? '今天' : '周' + wk[new Date(d + 'T00:00:00').getDay()];
+  const legend = document.getElementById('weekLegend');
+
+  if (trendMetric === '__bvc__') {
+    // 浏览 vs 创作（双柱）
+    const browseByDay = {}, createByDay = {};
+    days.forEach((d) => { browseByDay[d] = 0; createByDay[d] = 0; });
+    for (const r of weekRecords) {
+      if (!(r.day in browseByDay)) continue;
+      if (r.time_type === 'creating') createByDay[r.day] += r.duration_seconds || 0;
+      else browseByDay[r.day] += r.duration_seconds || 0;
+    }
+    const max = Math.max(1, ...days.map((d) => Math.max(browseByDay[d], createByDay[d])));
+    document.getElementById('weekTrend').innerHTML = days.map((d) => {
+      const bh = Math.round(browseByDay[d] / max * 100);
+      const ch = Math.round(createByDay[d] / max * 100);
+      return `<div class="week-col">
+        <div class="week-bars">
+          <div class="week-bar" style="height:${bh}%;background:var(--bar-blue)" title="浏览 ${fmtDur(browseByDay[d])}"></div>
+          <div class="week-bar" style="height:${ch}%;background:var(--bar-green)" title="创作 ${fmtDur(createByDay[d])}"></div>
+        </div>
+        <div class="week-lbl">${dayLabel(d)}</div>
+      </div>`;
+    }).join('');
+    if (legend) legend.innerHTML =
+      '<span><i class="dot" style="background:var(--bar-blue)"></i>浏览</span>' +
+      '<span><i class="dot" style="background:var(--bar-green)"></i>创作</span>';
+    return;
+  }
+
+  // 单个网站：每日总时长（单柱）
+  const domain = trendMetric;
+  const byDay = {};
+  days.forEach((d) => { byDay[d] = 0; });
+  for (const r of weekRecords) {
+    if (!(r.day in byDay) || r.domain !== domain) continue;
+    byDay[r.day] += r.duration_seconds || 0;
+  }
+  const max = Math.max(1, ...days.map((d) => byDay[d]));
+  const color = domain.includes('zhihu') ? 'var(--bar-purple)' : 'var(--bar-blue)';
   document.getElementById('weekTrend').innerHTML = days.map((d) => {
-    const dt = new Date(d + 'T00:00:00');
-    const bh = Math.round(browseByDay[d] / max * 100);
-    const ch = Math.round(createByDay[d] / max * 100);
-    const label = (d === BPDB.todayKey()) ? '今天' : '周' + wk[dt.getDay()];
+    const h = Math.round(byDay[d] / max * 100);
     return `<div class="week-col">
       <div class="week-bars">
-        <div class="week-bar" style="height:${bh}%;background:var(--bar-blue)" title="浏览 ${fmtDur(browseByDay[d])}"></div>
-        <div class="week-bar" style="height:${ch}%;background:var(--bar-green)" title="创作 ${fmtDur(createByDay[d])}"></div>
+        <div class="week-bar" style="height:${h}%;background:${color}" title="${fmtDur(byDay[d])}"></div>
       </div>
-      <div class="week-lbl">${label}</div>
+      <div class="week-lbl">${dayLabel(d)}</div>
     </div>`;
   }).join('');
+  if (legend) legend.innerHTML =
+    `<span><i class="dot" style="background:${color}"></i>${esc(BPCat.prettyDomain(domain))} · 每日访问时长</span>`;
 }
 
 document.addEventListener('DOMContentLoaded', () => {

@@ -4,22 +4,32 @@
 /* ════════════════════════════════════════
    主题
    ════════════════════════════════════════ */
-let dark = false;
+/* 主题偏好：'system' | 'light' | 'dark'（system 跟随操作系统） */
+let themePref = 'system';
+const themeMQ = matchMedia('(prefers-color-scheme: dark)');
+const THEME_META = {
+  system: { icon: '🌓', label: '跟随系统' },
+  light:  { icon: '☀️', label: '明亮' },
+  dark:   { icon: '🌙', label: '暗黑' },
+};
+function resolvedDark() {
+  return themePref === 'dark' || (themePref === 'system' && themeMQ.matches);
+}
 function applyTheme() {
-  document.documentElement.setAttribute('data-theme', dark ? 'dark' : '');
-  document.getElementById('themeBtnIcon').textContent = dark ? '☀️' : '🌙';
-  document.getElementById('themeBtnLabel').textContent = dark ? '白天' : '暗黑';
+  document.documentElement.setAttribute('data-theme', resolvedDark() ? 'dark' : 'light');
+  document.getElementById('themeBtnIcon').textContent = THEME_META[themePref].icon;
+  document.getElementById('themeBtnLabel').textContent = THEME_META[themePref].label;
 }
 function toggleTheme() {
-  dark = !dark;
+  themePref = themePref === 'system' ? 'light' : themePref === 'light' ? 'dark' : 'system';
   applyTheme();
-  chrome.storage.local.set({ theme: dark ? 'dark' : 'light' });
+  chrome.storage.local.set({ theme: themePref });
 }
 chrome.storage.local.get(['theme'], (res) => {
-  if (res.theme === 'dark') dark = true;
-  else if (!res.theme && matchMedia('(prefers-color-scheme: dark)').matches) dark = true;
+  themePref = ['system', 'light', 'dark'].includes(res.theme) ? res.theme : 'system';
   applyTheme();
 });
+themeMQ.addEventListener('change', () => { if (themePref === 'system') applyTheme(); });
 
 function greet() {
   const h = new Date().getHours();
@@ -251,19 +261,27 @@ function updateTimerDisplay() {
   document.getElementById('timerDisplay').textContent = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
 }
 
+function setPlayIcon(ic) {
+  const el = document.querySelector('#startBtn .play-ic');
+  if (el) el.textContent = ic;
+}
+
 function toggleTimer() {
   if (running) {
     clearInterval(interval); running = false;
     document.getElementById('startLabel').textContent = '继续';
     document.getElementById('timerLabel').textContent = '已暂停';
+    setPlayIcon('▶');
   } else {
     running = true;
     document.getElementById('startLabel').textContent = '暂停';
+    setPlayIcon('⏸');
     document.getElementById('timerLabel').textContent = mode === 'pomodoro' ? '专注中 🍅' : mode === 'deep' ? '深度工作中 🧠' : '专注中 ⚙️';
     interval = setInterval(() => {
       if (timeLeft <= 0) {
         clearInterval(interval); running = false;
         document.getElementById('startLabel').textContent = '开始';
+        setPlayIcon('▶');
         document.getElementById('timerLabel').textContent = '✅ 完成！休息一下';
         document.getElementById('timerProgress').style.width = '100%';
         saveSession();
@@ -282,6 +300,7 @@ function resetTimer() {
   updateTimerDisplay();
   document.getElementById('timerProgress').style.width = '0%';
   document.getElementById('startLabel').textContent = '开始';
+  setPlayIcon('▶');
   document.getElementById('timerLabel').textContent = '待开始';
   document.getElementById('focusScore').textContent = '—';
 }

@@ -69,27 +69,26 @@
     <div class="tab-pane active" id="pane-time">
 
       <!-- 计时器 -->
-      <div class="panel">
+      <div class="panel timer-panel">
         <div class="panel-title"><span class="ic">⏱️</span>专注计时器</div>
-        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-          <div>
-            <div class="timer-display" id="timerDisplay">25:00</div>
-            <div class="timer-label" id="timerLabel">番茄时钟 · 待开始</div>
+        <div class="timer-card">
+          <div class="timer-display" id="timerDisplay">25:00</div>
+          <div class="timer-label" id="timerLabel">番茄时钟 · 待开始</div>
+
+          <div class="timer-modes">
+            <button class="timer-mode active" id="modePomodoro">🍅 番茄 25m</button>
+            <button class="timer-mode" id="modeDeep">🧠 深度 90m</button>
+            <button class="timer-mode" id="modeCustom">⚙️ 自定义</button>
           </div>
-          <div style="display:flex;flex-direction:column;gap:6px;">
-            <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              <button class="ctrl-btn active" id="modePomodoro">🍅 番茄 25m</button>
-              <button class="ctrl-btn" id="modeDeep">🧠 深度 90m</button>
-              <button class="ctrl-btn" id="modeCustom">⚙️ 自定义</button>
-            </div>
-            <div style="display:flex;gap:6px;">
-              <button class="ctrl-btn" id="startBtn">▶️ <span id="startLabel">开始</span></button>
-              <button class="ctrl-btn" id="resetBtn">🔄 重置</button>
-            </div>
+
+          <div class="timer-progress-wrap">
+            <div class="timer-progress-fill" id="timerProgress" style="width:0%"></div>
           </div>
-        </div>
-        <div class="timer-progress-wrap">
-          <div class="timer-progress-fill" id="timerProgress" style="width:0%"></div>
+
+          <div class="timer-actions">
+            <button class="timer-start" id="startBtn"><span class="play-ic">▶</span><span id="startLabel">开始</span></button>
+            <button class="timer-reset" id="resetBtn" title="重置">↻</button>
+          </div>
         </div>
       </div>
 
@@ -125,6 +124,11 @@
           <div class="task-seg">
             <button class="seg-btn active" id="groupByDomain" data-group="domain">按域名</button>
             <button class="seg-btn" id="groupByCategory" data-group="category">按类别</button>
+          </div>
+          <div class="task-seg" id="taskFilterSeg">
+            <button class="seg-btn active" data-filter="all">全部</button>
+            <button class="seg-btn" data-filter="stale">⏰ 陈旧</button>
+            <button class="seg-btn" data-filter="dup">🔁 重复</button>
           </div>
           <button class="ctrl-btn" id="refreshTabsBtn">🔄 刷新</button>
           <button class="ctrl-btn" id="applyGroupsBtn">✨ 一键应用为 Chrome 标签组</button>
