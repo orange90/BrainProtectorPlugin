@@ -150,6 +150,27 @@ function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+/* 暴露给 tasks.js 复用 */
+window.BPUtil = { escapeHtml, fmtDur };
+
+/* ════════════════════════════════════════
+   Tab 切换
+   ════════════════════════════════════════ */
+function setupTabs() {
+  const btns = document.querySelectorAll('.tab-btn');
+  const panes = document.querySelectorAll('.tab-pane');
+  function activate(name) {
+    btns.forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
+    panes.forEach((p) => p.classList.toggle('active', p.id === 'pane-' + name));
+    chrome.storage.local.set({ activeTab: name });
+    if (name === 'task' && window.BPTasks) window.BPTasks.render();
+  }
+  btns.forEach((b) => b.addEventListener('click', () => activate(b.dataset.tab)));
+  chrome.storage.local.get(['activeTab'], (res) => {
+    if (res.activeTab) activate(res.activeTab);
+  });
+}
+
 /* ════════════════════════════════════════
    专注工具（番茄钟 / 有害自检 / 切换 / 认知负荷 / 建议）
    ════════════════════════════════════════ */
@@ -373,6 +394,7 @@ function bindEvents() {
 async function init() {
   greet();
   bindEvents();
+  setupTabs();
   await loadFocus();
   document.getElementById('switchCount').textContent = switchLog.length;
   document.getElementById('harmCountInline').textContent = checkedHarms.size;
