@@ -29,17 +29,37 @@ function daysAgoKey(n) {
   const d = new Date(); d.setDate(d.getDate() - n); return BPDB.dayKey(d.getTime());
 }
 
+let _categories = null;
+
+/** 取后台进行中的活跃段（心跳之外的最后几十秒），合成一条临时记录 */
+async function fetchLiveRecord(today) {
+  try {
+    const resp = await chrome.runtime.sendMessage({ type: 'GET_LIVE' });
+    const L = resp && resp.live;
+    if (!L || !(L.elapsed > 0)) return null;
+    return {
+      domain: L.domain, category: L.category, time_type: L.time_type,
+      duration_seconds: L.elapsed, day: today, title: '', tags: [], content_type: 'page',
+    };
+  } catch (e) { return null; }
+}
+
 async function main() {
   const today = BPDB.todayKey();
   document.getElementById('dateSub').textContent = today + ' · 数据完全本地存储';
 
-  const { categories } = await BPCat.getRules();
+  if (!_categories) ({ categories: _categories } = await BPCat.getRules());
+  const categories = _categories;
   let todayRecords = [], weekRecords = [], sessions = [];
   try {
     todayRecords = await BPDB.getRecordsByDay(today);
     weekRecords = await BPDB.getRecordsInRange(daysAgoKey(6), today);
     sessions = await BPDB.getSessionsByDay(today);
   } catch (e) { /* ignore */ }
+
+  // 合并进行中的活跃段，让浏览/创作时间无需等落盘即可实时显示
+  const live = await fetchLiveRecord(today);
+  if (live) { todayRecords = todayRecords.concat(live); weekRecords = weekRecords.concat(live); }
 
   renderSummary(todayRecords, sessions);
   renderBrowseVsCreate(todayRecords);
@@ -185,4 +205,8 @@ function renderWeekTrend(weekRecords) {
   }).join('');
 }
 
-document.addEventListener('DOMContentLoaded', main);
+document.addEventListener('DOMContentLoaded', () => {
+  main();
+  // 面板打开期间每 2s 刷新：实时反映进行中的浏览/创作时间与新落盘的记录
+  setInterval(main, 2000);
+});
