@@ -12,9 +12,9 @@
   --ink-3:       #8a909b;
   --line:        rgba(20,30,50,0.10);
   --line-2:      rgba(20,30,50,0.16);
-  --steel:       #2f6fb0;
-  --steel-2:     #3b82c9;
-  --steel-soft:  #e6eef6;
+  --steel:       #ff7800;
+  --steel-2:     #ff9233;
+  --steel-soft:  #ffeede;
   --teal:        #2c7a6b;
   --teal-soft:   rgba(44,122,107,0.12);
   --teal-line:   rgba(44,122,107,0.24);
@@ -26,6 +26,8 @@
   --hi-line:     rgba(255,255,255,0.7);
   --num-grad:    linear-gradient(180deg,#23262e,#3a4150);
   --neutral-bar: #6b7280;
+  --accent-glow: rgba(255,120,0,0.30);
+  --accent-bd:   rgba(255,120,0,0.55);
 
   --r-s: 6px; --r-m: 10px; --r-l: 14px;
   --shadow-sm: 0 1px 2px rgba(20,30,50,0.06);
@@ -35,9 +37,9 @@
           "PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
 
   --page-grad:
-    radial-gradient(900px 520px at 12% -8%, rgba(59,130,201,0.14), transparent 60%),
+    radial-gradient(900px 520px at 12% -8%, rgba(255,120,0,0.13), transparent 60%),
     radial-gradient(760px 480px at 105% 4%, rgba(44,122,107,0.10), transparent 55%),
-    linear-gradient(180deg,#f2f5f8 0%, #e9edf2 100%);
+    linear-gradient(180deg,#f6f4f1 0%, #efece8 100%);
 }
 
 [data-theme="dark"] {
@@ -49,9 +51,9 @@
   --ink-3:       #6b7280;
   --line:        rgba(255,255,255,0.08);
   --line-2:      rgba(255,255,255,0.14);
-  --steel:       #5aa0dd;
-  --steel-2:     #6fb2ec;
-  --steel-soft:  rgba(90,160,221,0.16);
+  --steel:       #ff8c2b;
+  --steel-2:     #ffa552;
+  --steel-soft:  rgba(255,140,43,0.16);
   --teal:        #5bb39e;
   --teal-soft:   rgba(91,179,158,0.16);
   --teal-line:   rgba(91,179,158,0.30);
@@ -63,12 +65,14 @@
   --hi-line:     rgba(255,255,255,0.12);
   --num-grad:    linear-gradient(180deg,#ffffff,#b8c0cc);
   --neutral-bar: #757d89;
+  --accent-glow: rgba(255,120,0,0.34);
+  --accent-bd:   rgba(255,140,43,0.55);
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.30);
   --shadow:    0 6px 22px rgba(0,0,0,0.40), 0 1px 3px rgba(0,0,0,0.30);
   --page-grad:
-    radial-gradient(900px 520px at 12% -8%, rgba(58,110,170,0.20), transparent 60%),
-    radial-gradient(760px 480px at 105% 4%, rgba(40,110,96,0.16), transparent 55%),
-    linear-gradient(180deg,#15181d 0%, #0f1216 100%);
+    radial-gradient(900px 520px at 12% -8%, rgba(255,120,0,0.16), transparent 60%),
+    radial-gradient(760px 480px at 105% 4%, rgba(40,110,96,0.15), transparent 55%),
+    linear-gradient(180deg,#1a1613 0%, #120f0d 100%);
 }
 
 html, body { min-height: 100%; }
@@ -124,23 +128,33 @@ body {
 .metric-card .val { font-size: 26px; font-weight: 650; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
 .metric-card .sub { font-size: 11px; color: var(--ink-3); margin-top: 7px; }
 
-/* ── Tab nav (frosted pill) ── */
-.tab-nav { display: flex; gap: 4px; border-radius: var(--r-m); padding: 4px; width: fit-content; margin: 0 0 22px;
+/* ── Tab nav (frosted pill with sliding indicator) ── */
+.tab-nav { position: relative; display: flex; gap: 4px; border-radius: var(--r-m); padding: 4px;
+  width: fit-content; margin: 0 auto 22px; touch-action: pan-y;
   background: rgba(255,255,255,0.4); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
   border: 1px solid var(--line); box-shadow: inset 0 1px 0 var(--hi-line); }
 [data-theme="dark"] .tab-nav { background: rgba(255,255,255,0.04); }
-.tab-btn { background: none; border: none; padding: 8px 18px; font-size: 13.5px; font-weight: 550;
-  color: var(--ink-3); cursor: pointer; display: inline-flex; align-items: center; gap: 7px;
-  font-family: inherit; border-radius: var(--r-s); transition: color 0.18s, background 0.18s; }
-.tab-btn:hover { color: var(--ink-2); }
-.tab-btn.active { color: var(--ink);
+.tab-indicator { position: absolute; top: 4px; bottom: 4px; left: 0; width: 0; border-radius: var(--r-s); z-index: 0;
   background: linear-gradient(180deg, var(--card-solid), rgba(255,255,255,0.82));
-  box-shadow: 0 1px 3px rgba(20,30,50,0.12), inset 0 1px 0 rgba(255,255,255,0.9); }
-[data-theme="dark"] .tab-btn.active { background: linear-gradient(180deg, #2b313b, #242a33);
+  box-shadow: 0 1px 3px rgba(20,30,50,0.12), inset 0 1px 0 rgba(255,255,255,0.9);
+  transition: transform 0.42s cubic-bezier(0.22,0.61,0.36,1), width 0.42s cubic-bezier(0.22,0.61,0.36,1); }
+[data-theme="dark"] .tab-indicator { background: linear-gradient(180deg, #2b313b, #242a33);
   box-shadow: 0 1px 3px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08); }
+.tab-btn { position: relative; z-index: 1; background: none; border: none; padding: 8px 18px; font-size: 13.5px; font-weight: 550;
+  color: var(--ink-3); cursor: pointer; display: inline-flex; align-items: center; gap: 7px;
+  font-family: inherit; border-radius: var(--r-s); transition: color 0.22s; }
+.tab-btn .ic { transition: transform 0.22s; }
+.tab-btn:hover { color: var(--ink-2); }
+.tab-btn.active { color: var(--ink); }
+.tab-btn.active .ic { color: var(--steel); transform: scale(1.06); }
 
 .tab-pane { display: none; }
-.tab-pane.active { display: block; }
+.tab-pane.active { display: block; animation: paneIn 0.36s cubic-bezier(0.22,0.61,0.36,1); }
+@keyframes paneIn { from { opacity: 0; transform: translateY(7px) scale(0.994); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .tab-indicator { transition: none; }
+  .tab-pane.active { animation: none; }
+}
 
 /* ── Layouts ── */
 .time-layout { display: grid; grid-template-columns: 380px 1fr; gap: 18px; align-items: start; }
@@ -180,11 +194,11 @@ body {
 .timer-start { display: inline-flex; align-items: center; gap: 9px; cursor: pointer;
   background: linear-gradient(180deg, var(--steel-2), var(--steel)); color: #fff; font-size: 14px; font-weight: 600;
   padding: 13px 46px; border-radius: var(--r-m); font-family: inherit; letter-spacing: 0.02em;
-  border: 1px solid rgba(47,111,176,0.6);
-  box-shadow: 0 6px 16px rgba(47,111,176,0.32), inset 0 1px 0 rgba(255,255,255,0.45);
+  border: 1px solid var(--accent-bd);
+  box-shadow: 0 6px 16px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.45);
   transition: filter 0.18s, box-shadow 0.18s, transform 0.12s; }
 .timer-start .play-ic { display: inline-flex; }
-.timer-start:hover { filter: brightness(1.05); box-shadow: 0 8px 22px rgba(47,111,176,0.4), inset 0 1px 0 rgba(255,255,255,0.5); }
+.timer-start:hover { filter: brightness(1.05); box-shadow: 0 9px 24px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.5); }
 .timer-start:active { transform: scale(0.98); }
 .timer-reset { cursor: pointer; color: var(--ink-2); width: 46px; height: 46px; border-radius: var(--r-m);
   display: inline-flex; align-items: center; justify-content: center;

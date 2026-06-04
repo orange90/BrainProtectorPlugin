@@ -12,9 +12,9 @@
   --ink-3:       #8a909b;
   --line:        rgba(20,30,50,0.10);
   --line-2:      rgba(20,30,50,0.16);
-  --steel:       #2f6fb0;
-  --steel-2:     #3b82c9;
-  --steel-soft:  #e6eef6;
+  --steel:       #ff7800;
+  --steel-2:     #ff9233;
+  --steel-soft:  #ffeede;
   --teal:        #2c7a6b;
   --amber:       #9a6b12;
   --crim:        #a33a3a;
@@ -22,15 +22,17 @@
   --hi-line:     rgba(255,255,255,0.7);
   --neutral-bar: #6b7280;
   --num-grad:    linear-gradient(180deg,#23262e,#3a4150);
+  --accent-glow: rgba(255,120,0,0.30);
+  --accent-bd:   rgba(255,120,0,0.55);
 
   --r-s: 6px; --r-m: 10px; --r-l: 14px;
   --shadow-sm: 0 1px 2px rgba(20,30,50,0.06);
   --shadow:    0 4px 18px rgba(20,30,50,0.08), 0 1px 3px rgba(20,30,50,0.05);
   --font: "Inter","SF Pro Text",-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
   --page-grad:
-    radial-gradient(900px 520px at 12% -8%, rgba(59,130,201,0.14), transparent 60%),
+    radial-gradient(900px 520px at 12% -8%, rgba(255,120,0,0.13), transparent 60%),
     radial-gradient(760px 480px at 105% 4%, rgba(44,122,107,0.10), transparent 55%),
-    linear-gradient(180deg,#f2f5f8 0%, #e9edf2 100%);
+    linear-gradient(180deg,#f6f4f1 0%, #efece8 100%);
 }
 [data-theme="dark"] {
   --card:        rgba(38,44,54,0.55);
@@ -41,9 +43,9 @@
   --ink-3:       #6b7280;
   --line:        rgba(255,255,255,0.08);
   --line-2:      rgba(255,255,255,0.14);
-  --steel:       #5aa0dd;
-  --steel-2:     #6fb2ec;
-  --steel-soft:  rgba(90,160,221,0.16);
+  --steel:       #ff8c2b;
+  --steel-2:     #ffa552;
+  --steel-soft:  rgba(255,140,43,0.16);
   --teal:        #5bb39e;
   --amber:       #d2a24a;
   --crim:        #e07a6e;
@@ -51,12 +53,14 @@
   --hi-line:     rgba(255,255,255,0.12);
   --neutral-bar: #757d89;
   --num-grad:    linear-gradient(180deg,#ffffff,#b8c0cc);
+  --accent-glow: rgba(255,120,0,0.34);
+  --accent-bd:   rgba(255,140,43,0.55);
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.30);
   --shadow:    0 6px 22px rgba(0,0,0,0.40), 0 1px 3px rgba(0,0,0,0.30);
   --page-grad:
-    radial-gradient(900px 520px at 12% -8%, rgba(58,110,170,0.20), transparent 60%),
-    radial-gradient(760px 480px at 105% 4%, rgba(40,110,96,0.16), transparent 55%),
-    linear-gradient(180deg,#15181d 0%, #0f1216 100%);
+    radial-gradient(900px 520px at 12% -8%, rgba(255,120,0,0.16), transparent 60%),
+    radial-gradient(760px 480px at 105% 4%, rgba(40,110,96,0.15), transparent 55%),
+    linear-gradient(180deg,#1a1613 0%, #120f0d 100%);
 }
 
 html, body { min-height: 100%; }

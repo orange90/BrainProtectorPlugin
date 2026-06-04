@@ -42,6 +42,13 @@
    * 知乎交由 sites/zhihu.js 精确判定（排除评论框），通用层在知乎上不介入。
    */
   const IS_ZHIHU = /(^|\.)zhihu\.com$/.test(location.hostname);
+  // 在线文档（Google Docs / 腾讯文档 / 飞书 等）交由 sites/online-docs.js 用按键节奏判定，
+  // 这些站点正文多为 canvas，通用层的「文本净增长」测不到，避免双重逻辑这里直接跳过。
+  const IS_ONLINE_DOC = [
+    /(^|\.)docs\.google\.com$/, /(^|\.)docs\.qq\.com$/, /(^|\.)doc\.weixin\.qq\.com$/,
+    /(^|\.)feishu\.cn$/, /(^|\.)larksuite\.com$/, /(^|\.)larkoffice\.com$/,
+    /(^|\.)yuque\.com$/, /(^|\.)notion\.so$/, /(^|\.)notion\.site$/,
+  ].some((re) => re.test(location.hostname));
   const MIN_GROWTH = 8; // 净增长达 8 字才认作真正在创作，挡住「改俩字 / 误触」
 
   let creatingTimer = null;
@@ -49,7 +56,7 @@
   let curEditor = null, lastLen = 0, grown = 0;
 
   function editorEl() {
-    if (IS_ZHIHU) return null;
+    if (IS_ZHIHU || IS_ONLINE_DOC) return null;
     const a = document.activeElement;
     if (!a) return null;
     if (a.isContentEditable === true) return a;

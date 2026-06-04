@@ -15,9 +15,9 @@
         <div class="name">脑力守护 <span class="greet" id="greet"></span></div>
       </div>
       <div class="header-actions">
-        <a class="link-btn" id="dashboardLink" href="../dashboard/dashboard.html" target="_blank">
+        <a class="link-btn" id="dashboardLink" href="../dashboard/dashboard.html">
           <svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l3-4 3 3 4-6"/></svg>完整报表</a>
-        <a class="link-btn" id="optionsLink" href="../options/options.html" target="_blank">
+        <a class="link-btn" id="optionsLink" href="../options/options.html">
           <svg class="ic ic-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.9H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 2.9-1.2V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>设置</a>
         <button id="themeBtn">
           <span id="themeBtnIcon" style="display:inline-flex"></span>
@@ -61,7 +61,8 @@
     </div>
 
     <!-- ── Tab 导航 ── -->
-    <div class="tab-nav">
+    <div class="tab-nav" id="tabNav">
+      <span class="tab-indicator" id="tabIndicator"></span>
       <button class="tab-btn active" data-tab="time">
         <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg>时间管理</button>
       <button class="tab-btn" data-tab="task">
