@@ -333,3 +333,27 @@ body {
   box-shadow: 0 8px 28px rgba(20,30,50,0.28); }
 [data-theme="dark"] .toast { background: #e7eaef; color: #16181d; }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── 专注完成弹窗 ── */
+.tdm-overlay { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center;
+  background: rgba(20,30,50,0.34); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+  opacity: 0; transition: opacity 0.24s; }
+.tdm-overlay.show { opacity: 1; }
+.tdm-overlay[hidden] { display: none; }
+.tdm-card { width: min(360px, 86vw); padding: 30px 28px 24px; border-radius: var(--r-l); text-align: center;
+  transform: translateY(12px) scale(0.97); transition: transform 0.26s cubic-bezier(0.2,0.8,0.3,1); }
+.tdm-overlay.show .tdm-card { transform: translateY(0) scale(1); }
+.tdm-ring { width: 60px; height: 60px; margin: 0 auto 16px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--teal-soft); border: 1.5px solid var(--teal-line); color: var(--teal); }
+.tdm-ring .ic { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.tdm-title { font-size: 19px; font-weight: 600; color: var(--ink); letter-spacing: 0.01em; }
+.tdm-sub { font-size: 13px; line-height: 1.6; color: var(--ink-2); margin-top: 9px; }
+.tdm-actions { display: flex; gap: 10px; margin-top: 22px; }
+.tdm-btn { flex: 1; padding: 11px 14px; border-radius: var(--r-m); font-family: inherit; font-size: 13px;
+  cursor: pointer; transition: filter 0.18s, border-color 0.18s, color 0.18s; }
+.tdm-rest { background: linear-gradient(180deg, var(--glass-hi), rgba(255,255,255,0.45));
+  border: 1px solid var(--line-2); color: var(--ink-2); box-shadow: inset 0 1px 0 var(--hi-line); }
+.tdm-rest:hover { color: var(--ink); border-color: var(--ink-3); }
+.tdm-again { background: var(--teal); border: 1px solid var(--teal); color: #fff; font-weight: 500; }
+.tdm-again:hover { filter: brightness(1.07); }
