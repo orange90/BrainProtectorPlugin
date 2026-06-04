@@ -4,7 +4,8 @@
  *   · 问题页 / 话题页：读取官方话题标签，分类精度最高
  *   · 首页 Feed：MutationObserver 捕获新卡片 + IntersectionObserver 测停留，
  *     把当前主导卡片的话题上报为「当前上下文」，让知乎时间被精确归类
- *   · 答题编辑器：基于 Draft.js 的 contenteditable，单独检测创作状态
+ *   · 答题 / 写文章编辑器：基于 contenteditable 的文本净增长检测创作状态
+ *     （只认正经编辑器，排除评论框；用 input 事件兼容中文输入法上屏 / 粘贴）
  */
 (function () {
   'use strict';
@@ -119,43 +120,56 @@
     }, 1000);
   }
 
-  /* ───────── 答题编辑器：创作检测 ───────── */
-  function detectZhihuEditor() {
-    const editorRoot = document.querySelector(
-      '.InputLike.AnswerForm-editor .DraftEditor-root, .RichText-editor, .Editable-content, .public-DraftEditor-content'
-    );
-    if (!editorRoot) return false;
-    const editable = editorRoot.matches('[contenteditable="true"]')
-      ? editorRoot
-      : editorRoot.querySelector('[contenteditable="true"]');
-    return !!editable;
+  /* ───────── 答题 / 写文章编辑器：创作检测 ─────────
+   * 以「当前聚焦的 contenteditable」为准，排除评论框等轻输入；
+   * 用 input 事件 + 文本净增长，兼容中文输入法上屏 / 粘贴。
+   */
+  const Z_MIN_GROWTH = 8;
+
+  function zhihuEditor() {
+    const a = document.activeElement;
+    if (!a || a.isContentEditable !== true) return null;
+    // 排除评论框：评论也是输入，但按约定不计为创作
+    if (a.closest('.Comments, .CommentEditorV2, .CommentEditor, .CommentRichText, .CommentTopbar')) return null;
+    return a;
   }
+
+  function zTextLen(el) { return el ? (el.textContent || '').length : 0; }
 
   let editorLastPing = 0;
   let editorTimer = null;
+  let zCur = null, zLastLen = 0, zGrown = 0;
 
-  // 编辑器内键盘输入 = 创作；每 8s 重发一次（自愈），停止 2 分钟切回浏览
-  document.addEventListener('keydown', (e) => {
-    if (!detectZhihuEditor()) return;
-    if (e.key && e.key.length > 1 && !['Backspace', 'Delete'].includes(e.key)) return;
+  function zReset(el) { zCur = el; zLastLen = zTextLen(el); zGrown = 0; }
+
+  function zStop() {
+    if (!editorLastPing) return;
+    editorLastPing = 0;
+    clearTimeout(editorTimer);
+    send({ type: 'STOP_CREATING', source: 'zhihu-editor' });
+  }
+
+  // 编辑器内文本净增长 = 创作；每 8s 重发一次（自愈），停止 2 分钟切回浏览
+  document.addEventListener('input', () => {
+    const el = zhihuEditor();
+    if (!el) return;
+    if (el !== zCur) zReset(el);
+    const len = zTextLen(el);
+    if (len > zLastLen) zGrown += len - zLastLen;
+    zLastLen = len;
+    if (zGrown < Z_MIN_GROWTH) return;
+
     const now = Date.now();
     if (now - editorLastPing > 8000) {
       editorLastPing = now;
       send({ type: 'START_CREATING', source: 'zhihu-editor' });
     }
     clearTimeout(editorTimer);
-    editorTimer = setTimeout(() => {
-      editorLastPing = 0;
-      send({ type: 'STOP_CREATING', source: 'zhihu-editor' });
-    }, 2 * 60 * 1000);
+    editorTimer = setTimeout(zStop, 2 * 60 * 1000);
   }, true);
 
-  // 编辑器消失（提交/关闭）时结束创作
-  new MutationObserver(() => {
-    if (editorLastPing && !detectZhihuEditor()) {
-      editorLastPing = 0;
-      clearTimeout(editorTimer);
-      send({ type: 'STOP_CREATING', source: 'zhihu-editor' });
-    }
-  }).observe(document.body, { childList: true, subtree: true });
+  // 失焦 / 提交后焦点离开编辑器即结束创作
+  document.addEventListener('blur', () => {
+    if (!zhihuEditor()) { zReset(null); zStop(); }
+  }, true);
 })();
