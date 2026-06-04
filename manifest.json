@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "脑力守护 · Brain Protector",
-  "version": "1.0.1",
-  "description": "接管新标签页，实时追踪各网站浏览/创作时间，深度感知知乎话题，并提供番茄专注、有害行为自检与认知负荷分析，守护你的大脑专注力。",
-  "permissions": ["tabs", "storage", "idle", "scripting", "alarms"],
+  "version": "1.1.0",
+  "description": "接管新标签页，实时追踪各网站浏览/创作时间，深度感知知乎话题，并提供番茄专注、有害行为自检、认知负荷分析与标签页任务管理，守护你的大脑专注力。",
+  "permissions": ["tabs", "storage", "idle", "scripting", "alarms", "tabGroups"],
   "host_permissions": ["<all_urls>"],
   "chrome_url_overrides": {
     "newtab": "newtab/newtab.html"

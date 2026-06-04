@@ -58,92 +58,125 @@
       </div>
     </div>
 
-    <!-- ── 左右主布局 ── -->
-    <div class="main-layout">
+    <!-- ── Tab 导航 ── -->
+    <div class="tab-nav">
+      <button class="tab-btn active" data-tab="time"><span class="ic">⏱️</span>时间管理</button>
+      <button class="tab-btn" data-tab="task"><span class="ic">🗂️</span>任务管理</button>
+      <button class="tab-btn" data-tab="state"><span class="ic">🧠</span>状态管理</button>
+    </div>
 
-      <!-- ════ 左列：浏览时间 ════ -->
-      <div>
-        <div class="panel">
-          <div class="panel-title"><span class="ic">📊</span>浏览 &amp; 创作时间</div>
+    <!-- ════════ Tab：时间管理 ════════ -->
+    <div class="tab-pane active" id="pane-time">
 
-          <div class="section-block">
-            <div class="section-lbl">各网站浏览</div>
-            <div id="siteRows"></div>
+      <!-- 计时器 -->
+      <div class="panel">
+        <div class="panel-title"><span class="ic">⏱️</span>专注计时器</div>
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+          <div>
+            <div class="timer-display" id="timerDisplay">25:00</div>
+            <div class="timer-label" id="timerLabel">番茄时钟 · 待开始</div>
           </div>
-
-          <div class="section-block">
-            <div class="section-lbl">知乎话题分析</div>
-            <div id="zhihuRows"></div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button class="ctrl-btn active" id="modePomodoro">🍅 番茄 25m</button>
+              <button class="ctrl-btn" id="modeDeep">🧠 深度 90m</button>
+              <button class="ctrl-btn" id="modeCustom">⚙️ 自定义</button>
+            </div>
+            <div style="display:flex;gap:6px;">
+              <button class="ctrl-btn" id="startBtn">▶️ <span id="startLabel">开始</span></button>
+              <button class="ctrl-btn" id="resetBtn">🔄 重置</button>
+            </div>
           </div>
-
-          <div class="section-block" style="background:var(--green-bg);border-color:var(--green);">
-            <div class="section-lbl" style="color:var(--green);">创作时间明细</div>
-            <div class="create-badges" id="createRows"></div>
-          </div>
+        </div>
+        <div class="timer-progress-wrap">
+          <div class="timer-progress-fill" id="timerProgress" style="width:0%"></div>
         </div>
       </div>
 
-      <!-- ════ 右列：专注工具 ════ -->
-      <div>
+      <!-- 浏览 & 创作时间 -->
+      <div class="panel">
+        <div class="panel-title"><span class="ic">📊</span>浏览 &amp; 创作时间</div>
 
-        <!-- 计时器 -->
-        <div class="panel">
-          <div class="panel-title"><span class="ic">⏱️</span>专注计时器</div>
-          <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-            <div>
-              <div class="timer-display" id="timerDisplay">25:00</div>
-              <div class="timer-label" id="timerLabel">番茄时钟 · 待开始</div>
-            </div>
-            <div style="display:flex;flex-direction:column;gap:6px;">
-              <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                <button class="ctrl-btn active" id="modePomodoro">🍅 番茄 25m</button>
-                <button class="ctrl-btn" id="modeDeep">🧠 深度 90m</button>
-                <button class="ctrl-btn" id="modeCustom">⚙️ 自定义</button>
-              </div>
-              <div style="display:flex;gap:6px;">
-                <button class="ctrl-btn" id="startBtn">▶️ <span id="startLabel">开始</span></button>
-                <button class="ctrl-btn" id="resetBtn">🔄 重置</button>
-              </div>
-            </div>
-          </div>
-          <div class="timer-progress-wrap">
-            <div class="timer-progress-fill" id="timerProgress" style="width:0%"></div>
-          </div>
+        <div class="section-block">
+          <div class="section-lbl">各网站浏览</div>
+          <div id="siteRows"></div>
         </div>
 
-        <!-- 切换记录 + 有害行为 -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
-          <div class="panel" style="margin-bottom:0;">
+        <div class="section-block">
+          <div class="section-lbl">知乎话题分析</div>
+          <div id="zhihuRows"></div>
+        </div>
+
+        <div class="section-block" style="background:var(--green-bg);border-color:var(--green);">
+          <div class="section-lbl" style="color:var(--green);">创作时间明细</div>
+          <div class="create-badges" id="createRows"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════ Tab：任务管理 ════════ -->
+    <div class="tab-pane" id="pane-task">
+      <div class="panel">
+        <div class="panel-title"><span class="ic">🗂️</span>标签页整理</div>
+
+        <div class="task-toolbar">
+          <div class="task-stats" id="taskStats">—</div>
+          <input type="search" id="tabSearch" class="task-search" placeholder="🔍 搜索标题或域名…" />
+          <div class="task-seg">
+            <button class="seg-btn active" id="groupByDomain" data-group="domain">按域名</button>
+            <button class="seg-btn" id="groupByCategory" data-group="category">按类别</button>
+          </div>
+          <button class="ctrl-btn" id="refreshTabsBtn">🔄 刷新</button>
+          <button class="ctrl-btn" id="applyGroupsBtn">✨ 一键应用为 Chrome 标签组</button>
+        </div>
+
+        <div id="taskGroups" class="task-groups"></div>
+      </div>
+    </div>
+
+    <!-- ════════ Tab：状态管理 ════════ -->
+    <div class="tab-pane" id="pane-state">
+      <div class="main-layout">
+        <div>
+          <!-- 切换记录 -->
+          <div class="panel">
             <div class="panel-title"><span class="ic">🔀</span>切换记录</div>
             <button class="ctrl-btn" id="logSwitchBtn" style="width:100%;justify-content:center;margin-bottom:9px;">➕ 记录切换 ↗</button>
             <ul class="log-list" id="switchLog">
               <li style="font-size:11px;color:var(--tx-muted);padding:6px 0;">暂无记录</li>
             </ul>
           </div>
-          <div class="panel" style="margin-bottom:0;">
+
+          <!-- 有害行为 -->
+          <div class="panel">
             <div class="panel-title"><span class="ic">⚠️</span>有害行为</div>
             <div id="harmChecklist"></div>
           </div>
         </div>
 
-        <!-- 认知负荷 -->
-        <div class="panel">
-          <div class="panel-title"><span class="ic">📈</span>认知负荷</div>
-          <div id="cogBars"></div>
-        </div>
+        <div>
+          <!-- 认知负荷 -->
+          <div class="panel">
+            <div class="panel-title"><span class="ic">📈</span>认知负荷</div>
+            <div id="cogBars"></div>
+          </div>
 
-        <!-- 实时建议 -->
-        <div class="panel">
-          <div class="panel-title"><span class="ic">💡</span>实时建议</div>
-          <div id="insights"></div>
+          <!-- 实时建议 -->
+          <div class="panel">
+            <div class="panel-title"><span class="ic">💡</span>实时建议</div>
+            <div id="insights"></div>
+          </div>
         </div>
-
       </div>
     </div>
+
   </div>
+
+  <div id="toast" class="toast"></div>
 
   <script src="../src/db.js"></script>
   <script src="../src/categorize.js"></script>
   <script src="newtab.js"></script>
+  <script src="tasks.js"></script>
 </body>
 </html>
