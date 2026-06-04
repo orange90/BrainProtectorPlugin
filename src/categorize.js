@@ -36,8 +36,19 @@
     '内容社区': ['zhihu.com', 'xiaohongshu.com', 'douban.com', 'tieba.baidu.com', 'reddit.com'],
     '视频': ['youtube.com', 'bilibili.com', 'douyin.com', 'iqiyi.com', 'youku.com'],
     '开发工具': ['github.com', 'stackoverflow.com', 'claude.ai', 'gitlab.com', 'developer.mozilla.org'],
-    '效率办公': ['notion.so', 'feishu.cn', 'yuque.com', 'google.com', 'docs.google.com'],
+    '效率办公': ['notion.so', 'feishu.cn', 'yuque.com', 'google.com', 'docs.google.com', 'docs.qq.com', 'doc.weixin.qq.com'],
   };
+
+  /**
+   * 这些在线文档子域单独统计，不折叠到主站。
+   * 否则 docs.google.com 会并进 google.com（搜索）、docs.qq.com 会并进 qq.com，
+   * 在文档里的创作时间就被混到主站头上，看起来「没记录」。
+   */
+  const KEEP_SUBDOMAINS = [
+    'docs.google.com',
+    'docs.qq.com',
+    'doc.weixin.qq.com',
+  ];
 
   /** 已知域名 → 展示名 */
   const DOMAIN_NAMES = {
@@ -53,6 +64,11 @@
     'douban.com': '豆瓣',
     'stackoverflow.com': 'StackOverflow',
     'google.com': 'Google',
+    'docs.google.com': 'Google 文档',
+    'docs.qq.com': '腾讯文档',
+    'doc.weixin.qq.com': '微信文档',
+    'feishu.cn': '飞书',
+    'yuque.com': '语雀',
     'notion.so': 'Notion',
   };
 
@@ -92,7 +108,10 @@
 
   function rootDomain(hostname) {
     if (!hostname) return '';
-    const parts = hostname.replace(/^www\./, '').split('.');
+    const host = hostname.replace(/^www\./, '');
+    // 在线文档子域保留全名，与主站分开统计
+    if (KEEP_SUBDOMAINS.includes(host)) return host;
+    const parts = host.split('.');
     if (parts.length <= 2) return parts.join('.');
     // 处理 .com.cn / .co.uk 等
     const secondLevel = ['com', 'net', 'org', 'gov', 'edu', 'co'];
