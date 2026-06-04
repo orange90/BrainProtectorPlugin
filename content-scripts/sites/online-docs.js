@@ -2,20 +2,23 @@
  * online-docs.js — 在线文档创作检测层
  *
  * 通用层（content-general.js）靠「activeElement 是 textarea / contenteditable + 文本净增长」
- * 判定创作。但 Google Docs / 腾讯文档 / 飞书 等用 canvas 渲染正文，真正接收输入的是一个
- * 离屏 iframe 里的隐藏 contenteditable，主文档的 activeElement 测不到、也读不到文本长度。
+ * 判定创作。但 Google Docs / 腾讯文档 等用 canvas 渲染正文，真正接收输入的是一个离屏
+ * iframe 里的隐藏 contenteditable，主文档的 activeElement 测不到、也读不到文本长度。
  *
- * 这一层改用「按键节奏」信号：在已知在线文档域名上（含其编辑器 iframe，故 all_frames），
- * 统计持续的可打印按键 / 输入法上屏，达到阈值即判作创作；停止输入 2 分钟自动切回浏览。
- * 单行 <input>（标题/搜索）排除在外。
+ * 实测三家差异（2026-06，DevTools 验证）：
+ *   · Google Docs：canvas + 离屏 iframe，键入只在该 iframe 内派发 keydown，主文档零事件、
+ *     无 input/beforeinput。故需 all_frames + 统计 keydown 节奏。
+ *   · 飞书：真实 DOM contenteditable，主文档上 keydown/input 全有，通用层本就能测，这里冗余兜底。
+ *   · 腾讯文档（docs.qq.com / doc.weixin.qq.com）：受工具限制无法注入探测，新版亦 canvas 渲染。
+ *     按用户要求改为「域名级」判定：只要停留在该域名的页面（且标签页处于前台聚焦）即算创作，
+ *     不再依赖按键。前台/聚焦/空闲的把关由 background.js（tabIsActiveFocused）负责。
  */
 (function () {
   'use strict';
 
-  const DOC_HOSTS = [
+  // 键盘节奏判定的域名（canvas / DOM 编辑器，靠按键计数）
+  const KEYSTROKE_HOSTS = [
     /(^|\.)docs\.google\.com$/,
-    /(^|\.)docs\.qq\.com$/,
-    /(^|\.)doc\.weixin\.qq\.com$/,
     /(^|\.)feishu\.cn$/,
     /(^|\.)larksuite\.com$/,
     /(^|\.)larkoffice\.com$/,
@@ -23,7 +26,11 @@
     /(^|\.)notion\.so$/,
     /(^|\.)notion\.site$/,
   ];
-  if (!DOC_HOSTS.some((re) => re.test(location.hostname))) return;
+  // 域名级判定的域名（只要在站内即算创作，无法/无需探测按键）
+  const ALWAYS_HOSTS = [
+    /(^|\.)docs\.qq\.com$/,
+    /(^|\.)doc\.weixin\.qq\.com$/,
+  ];
 
   function send(msg) {
     try {
@@ -31,9 +38,37 @@
     } catch (e) { /* 扩展上下文失效，忽略 */ }
   }
 
+  const REPING_MS = 8000;             // 每 8s 重发一次 START，单条丢失 / SW 重启可自愈
+
+  // ── 域名级判定（腾讯文档）────────────────────────────────────────────────
+  if (ALWAYS_HOSTS.some((re) => re.test(location.hostname))) {
+    if (window.top !== window) return; // 仅顶层框架发，避免多 iframe 重复
+
+    function ping() {
+      // 后台 / 失焦时不发；background 也会拦，但这里先省掉无效消息
+      if (document.visibilityState === 'visible' && document.hasFocus()) {
+        send({ type: 'START_CREATING', source: 'general' });
+      }
+    }
+    function end() { send({ type: 'STOP_CREATING', source: 'general' }); }
+
+    setInterval(ping, REPING_MS);
+    ping();
+
+    // 切走标签页 / 窗口失焦立即结束创作段，避免多算（最多 REPING_MS）
+    document.addEventListener('visibilitychange', () => {
+      document.visibilityState === 'visible' ? ping() : end();
+    });
+    window.addEventListener('blur', end);
+    window.addEventListener('focus', ping);
+    return;
+  }
+
+  // ── 按键节奏判定（Google Docs / 飞书 等）──────────────────────────────────
+  if (!KEYSTROKE_HOSTS.some((re) => re.test(location.hostname))) return;
+
   const MIN_KEYS = 6;                 // 连续 6 次有效输入才认作创作，挡住误触/快捷键
   const IDLE_MS = 2 * 60 * 1000;      // 停手 2 分钟切回浏览
-  const REPING_MS = 8000;             // 每 8s 重发一次 START，单条丢失可自愈
 
   let keys = 0, lastPing = 0, idleTimer = null;
 
