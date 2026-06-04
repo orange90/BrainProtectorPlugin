@@ -141,9 +141,13 @@ async function flush(now) {
   await saveState();
 }
 
-/** 开始为某 tab 计时（先结算旧段） */
+/** 开始为某 tab 计时（先结算旧段）
+ *  注意：无论新 tab 是否「可计时」，旧段都必须先结算，避免用户切到 newtab/
+ *  扩展页面/chrome:// 时，旧段被心跳继续累计到旧网站头上。
+ */
 async function startTracking(tab, timeType) {
   await flush(Date.now());
+  if (!tab) return;
   if (!(await tabIsActiveFocused(tab))) return;
   if (!parseDomain(tab.url)) return;
   active = buildSegment(tab.id, tab.url, timeType || 'browsing');
@@ -189,6 +193,17 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     // 仍处于聚焦活跃才继续累计；否则结束
     idleState = await queryIdle();
     if (idleState !== 'active') { await flush(Date.now()); return; }
+    // 防御性兜底：若 active 段所在的 tab 已不再是当前聚焦窗口的活跃 tab
+    // （例如用户已切到 newtab/扩展页面/chrome:// 等不可计时页面，但这些
+    //  页面没有 content-script 来触发 ACTIVITY_PING 自愈），
+    // 必须结束该段，避免 newtab 的停留时间被错误累计到旧网站。
+    const focusedTab = (focusedWindowId !== chrome.windows.WINDOW_ID_NONE)
+      ? await getActiveTabInWindow(focusedWindowId)
+      : null;
+    if (!focusedTab || focusedTab.id !== active.tabId) {
+      await flush(Date.now());
+      return;
+    }
     await commit(Date.now());
     await saveState();
   });
@@ -199,7 +214,9 @@ chrome.tabs.onActivated.addListener((info) =>
   withLock(async () => {
     await ensureLoaded();
     const tab = await new Promise((r) => chrome.tabs.get(info.tabId, (t) => r(chrome.runtime.lastError ? null : t)));
-    if (tab && tab.url) await startTracking(tab, 'browsing');
+    // 即使新 tab 的 url 暂时为空（新建标签页加载中）或为扩展/chrome:// 页面，
+    // 也必须调用 startTracking 来结算旧段；否则旧段会在心跳中被错误累计。
+    await startTracking(tab, 'browsing');
   })
 );
 
