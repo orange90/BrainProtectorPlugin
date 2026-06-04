@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>完整报表 · 脑力守护</title>
+  <link rel="stylesheet" href="dashboard.css" />
+</head>
+<body>
+  <div class="wrap">
+    <div class="head">
+      <div>
+        <h1>🧠 脑力守护 · 数据报表</h1>
+        <div class="sub" id="dateSub">—</div>
+      </div>
+      <div class="head-actions">
+        <button class="btn" id="themeBtn">🌙 暗黑</button>
+        <button class="btn" id="optionsBtn">⚙️ 设置</button>
+      </div>
+    </div>
+
+    <!-- 概览卡片 -->
+    <div class="cards" id="summaryCards"></div>
+
+    <!-- 浏览 vs 创作 -->
+    <div class="panel">
+      <h2>📊 今日浏览 vs 创作</h2>
+      <div class="split-bar" id="bvcBar"></div>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--bar-blue)"></i>浏览 <b id="bvcBrowse">—</b></span>
+        <span><i class="dot" style="background:var(--bar-green)"></i>创作 <b id="bvcCreate">—</b></span>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <!-- 网站排行 -->
+      <div class="panel">
+        <h2>🌐 网站排行 Top 10（今日）</h2>
+        <div id="siteRank"></div>
+      </div>
+      <!-- 分类占比 -->
+      <div class="panel">
+        <h2>🏷️ 分类时间占比（今日）</h2>
+        <div id="catDist"></div>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <!-- 知乎话题排行 -->
+      <div class="panel">
+        <h2>📚 知乎话题排行 Top 15（本周）</h2>
+        <div id="zhihuTopics"></div>
+      </div>
+      <!-- 创作详情 -->
+      <div class="panel">
+        <h2>✍️ 创作时间详情（今日）</h2>
+        <div id="createDetail"></div>
+      </div>
+    </div>
+
+    <!-- 周趋势 -->
+    <div class="panel">
+      <h2>📈 近 7 天趋势</h2>
+      <div class="week" id="weekTrend"></div>
+      <div class="legend" style="margin-top:8px;justify-content:center;">
+        <span><i class="dot" style="background:var(--bar-blue)"></i>浏览</span>
+        <span><i class="dot" style="background:var(--bar-green)"></i>创作</span>
+      </div>
+    </div>
+  </div>
+
+  <script src="../src/db.js"></script>
+  <script src="../src/categorize.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>

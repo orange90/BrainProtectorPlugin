@@ -1,0 +1,7 @@
+{
+  "社交媒体": ["twitter.com", "x.com", "weibo.com", "threads.net", "facebook.com", "instagram.com"],
+  "内容社区": ["zhihu.com", "xiaohongshu.com", "douban.com", "tieba.baidu.com", "reddit.com"],
+  "视频": ["youtube.com", "bilibili.com", "douyin.com", "iqiyi.com", "youku.com"],
+  "开发工具": ["github.com", "stackoverflow.com", "claude.ai", "gitlab.com", "developer.mozilla.org"],
+  "效率办公": ["notion.so", "feishu.cn", "yuque.com", "google.com", "docs.google.com"]
+}
