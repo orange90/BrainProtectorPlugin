@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>设置 · 脑力守护</title>
+  <style>
+    * { box-sizing:border-box; margin:0; padding:0; }
+    :root { --bg:#f5f4f0; --card:#fff; --bd:rgba(0,0,0,.12); --tx:#1a1a18; --tx2:#5a5a55; --muted:#9a9a92; --green:#3B6D11; --red:#A32D2D; --accent:#534AB7; }
+    @media (prefers-color-scheme: dark){ :root{ --bg:#141412; --card:#1e1e1b; --bd:rgba(255,255,255,.12); --tx:#e8e6e0; --tx2:#a8a8a0; --muted:#66665e; --green:#8bc34a; --red:#e05555; --accent:#9a90ff; } }
+    body { font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; background:var(--bg); color:var(--tx); padding:28px 20px; }
+    .wrap { max-width:820px; margin:0 auto; }
+    h1 { font-size:20px; margin-bottom:4px; display:flex; align-items:center; gap:8px; }
+    .lead { font-size:12px; color:var(--muted); margin-bottom:20px; }
+    .panel { background:var(--card); border:0.5px solid var(--bd); border-radius:12px; padding:18px 20px; margin-bottom:16px; }
+    .panel h2 { font-size:14px; margin-bottom:4px; }
+    .panel .hint { font-size:11px; color:var(--muted); margin-bottom:14px; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { text-align:left; font-size:12px; padding:6px 6px; border-bottom:0.5px solid var(--bd); vertical-align:top; }
+    th { color:var(--muted); font-weight:500; }
+    input[type=text], input[type=number], textarea { width:100%; background:var(--bg); border:0.5px solid var(--bd); border-radius:6px; padding:6px 8px; font-size:12px; color:var(--tx); font-family:inherit; }
+    input[type=color] { width:36px; height:28px; border:0.5px solid var(--bd); border-radius:6px; background:var(--bg); cursor:pointer; padding:2px; }
+    textarea { min-height:120px; resize:vertical; font-family:ui-monospace,Menlo,monospace; line-height:1.5; }
+    .cat-name { font-weight:600; min-width:90px; }
+    .num { width:64px; }
+    .btn { border:0.5px solid var(--bd); border-radius:8px; padding:8px 14px; font-size:12px; cursor:pointer; background:var(--bg); color:var(--tx); }
+    .btn:hover { background:var(--card); }
+    .btn.primary { background:var(--green); color:#fff; border-color:var(--green); }
+    .btn.danger { color:var(--red); border-color:var(--red); }
+    .btn-x { background:transparent; border:none; color:var(--red); cursor:pointer; font-size:14px; }
+    .actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:6px; }
+    .status { font-size:12px; color:var(--green); margin-left:auto; }
+    .addcat { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+    .addcat input { max-width:200px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🧠 脑力守护 · 设置</h1>
+    <div class="lead">所有规则与数据都保存在本地浏览器，绝不上传任何服务器。</div>
+
+    <div class="panel">
+      <h2>分类规则</h2>
+      <div class="hint">命中任一关键词即归入该分类（优先匹配深度感知层标签，再匹配标题）。阈值 &gt; 0 时超出会在仪表盘标 ⚠️。</div>
+      <table>
+        <thead>
+          <tr><th class="cat-name">分类</th><th>关键词（逗号分隔）</th><th>颜色</th><th>阈值(分)</th><th></th></tr>
+        </thead>
+        <tbody id="catBody"></tbody>
+      </table>
+      <div class="addcat">
+        <input type="text" id="newCatName" placeholder="新分类名称" />
+        <button class="btn" id="addCatBtn">＋ 添加分类</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>域名分组</h2>
+      <div class="hint">JSON 格式：分组名 → 域名数组。用于报表里的网站归类。</div>
+      <textarea id="siteGroupsArea" spellcheck="false"></textarea>
+    </div>
+
+    <div class="panel">
+      <h2>数据管理</h2>
+      <div class="hint">导出可做备份；清空将永久删除全部时间记录与专注会话。</div>
+      <div class="actions">
+        <button class="btn" id="exportBtn">⬇️ 导出数据 (JSON)</button>
+        <button class="btn danger" id="clearBtn">🗑️ 清空全部数据</button>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn primary" id="saveBtn">💾 保存设置</button>
+      <button class="btn" id="resetBtn">↺ 恢复默认规则</button>
+      <span class="status" id="status"></span>
+    </div>
+  </div>
+
+  <script src="../src/db.js"></script>
+  <script src="../src/categorize.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

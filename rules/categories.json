@@ -1,0 +1,27 @@
+{
+  "数码娱乐": {
+    "keywords": ["小米", "华为", "iPhone", "苹果", "三星", "OPPO", "vivo", "开箱", "评测", "旗舰机", "手机", "数码", "相机", "耳机", "笔记本"],
+    "color": "#E24B4A",
+    "alert_threshold_minutes": 30
+  },
+  "AI / 技术": {
+    "keywords": ["LLM", "Claude", "GPT", "大模型", "Agent", "编程", "Python", "JavaScript", "算法", "机器学习", "深度学习", "AI", "人工智能", "开源", "技术"],
+    "color": "#639922",
+    "alert_threshold_minutes": 0
+  },
+  "内容创作": {
+    "keywords": ["写作", "自媒体", "流量", "涨粉", "选题", "爆款", "文案", "运营", "博客", "创作"],
+    "color": "#7F77DD",
+    "alert_threshold_minutes": 0
+  },
+  "娱乐消遣": {
+    "keywords": ["综艺", "明星", "八卦", "游戏", "搞笑", "电影", "电视剧", "娱乐", "段子", "梗"],
+    "color": "#EF9F27",
+    "alert_threshold_minutes": 60
+  },
+  "未分类": {
+    "keywords": [],
+    "color": "#9a9a92",
+    "alert_threshold_minutes": 0
+  }
+}

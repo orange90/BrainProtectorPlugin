@@ -1,0 +1,47 @@
+{
+  "manifest_version": 3,
+  "name": "脑力守护 · Brain Protector",
+  "version": "1.0.0",
+  "description": "接管新标签页，实时追踪各网站浏览/创作时间，深度感知知乎话题，并提供番茄专注、有害行为自检与认知负荷分析，守护你的大脑专注力。",
+  "permissions": ["tabs", "storage", "idle", "scripting"],
+  "host_permissions": ["<all_urls>"],
+  "chrome_url_overrides": {
+    "newtab": "newtab/newtab.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "脑力守护 · Brain Protector",
+    "default_popup": "dashboard/dashboard.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "options_page": "options/options.html",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content-scripts/content-general.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["*://*.zhihu.com/*"],
+      "js": ["content-scripts/sites/zhihu.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["rules/categories.json", "rules/site-groups.json"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
