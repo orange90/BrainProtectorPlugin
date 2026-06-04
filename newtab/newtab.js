@@ -246,6 +246,11 @@ function setupTabs() {
 const MODES = { pomodoro: 25 * 60, deep: 90 * 60, custom: 45 * 60 };
 let mode = 'pomodoro', totalTime = MODES.pomodoro, timeLeft = totalTime;
 let running = false, interval = null, switchLog = [], customMinutes = 45;
+// 计时器持久化：以墙钟终点时间(endAt)为锚点，跨刷新/新标签页继续走动
+let timerEndAt = null;
+const TIMER_KEY = 'focusTimerState';
+// 区分本标签页写入与其他标签页写入，避免 storage 变更回环
+const TAB_ID = Math.random().toString(36).slice(2);
 
 const harmItems = [
   { id: 'h1', text: '查了手机/社交媒体', risk: '高度分心', severity: 'danger' },
@@ -313,6 +318,10 @@ function setMode(m) {
     document.getElementById('mode' + x[0].toUpperCase() + x.slice(1)).classList.toggle('active', x === m));
   document.getElementById('timerLabel').textContent =
     m === 'pomodoro' ? '番茄时钟 · 待开始' : m === 'deep' ? '深度工作 · 待开始' : `自定义 ${customMinutes}min · 待开始`;
+  document.getElementById('startLabel').textContent = '开始';
+  setPlayIcon('play');
+  document.getElementById('focusScore').textContent = '—';
+  persistTimer();
 }
 
 function updateTimerDisplay() {
@@ -325,43 +334,168 @@ function setPlayIcon(kind) {
   if (el) el.innerHTML = kind === 'pause' ? SVG.pause : SVG.play;
 }
 
+function runningLabel() {
+  return mode === 'pomodoro' ? '专注中' : mode === 'deep' ? '深度工作中' : '自定义专注中';
+}
+
+function updateProgressBar() {
+  const pct = totalTime ? Math.round(((totalTime - timeLeft) / totalTime) * 100) : 0;
+  document.getElementById('timerProgress').style.width = pct + '%';
+}
+
+function startTick() {
+  clearInterval(interval);
+  interval = setInterval(tick, 1000);
+}
+
+// 每秒根据墙钟终点重新计算剩余时间，避免标签页被节流时计时漂移
+function tick() {
+  if (running && timerEndAt) timeLeft = Math.max(0, Math.round((timerEndAt - Date.now()) / 1000));
+  if (running && timeLeft <= 0) { completeTimer(); return; }
+  updateTimerDisplay();
+  updateProgressBar();
+  updateFocusScore(); updateFocusTime();
+}
+
+function finishUI() {
+  document.getElementById('startLabel').textContent = '开始';
+  setPlayIcon('play');
+  document.getElementById('timerLabel').textContent = '完成 · 休息一下';
+  document.getElementById('timerProgress').style.width = '100%';
+  updateTimerDisplay();
+}
+
+function completeTimer() {
+  clearInterval(interval);
+  running = false; timerEndAt = null; timeLeft = 0;
+  finishUI();
+  updateFocusScore(); updateFocusTime();
+  // 只记录一次会话：若其他标签页已标记完成则跳过
+  chrome.storage.local.get([TIMER_KEY], (res) => {
+    const st = res[TIMER_KEY];
+    if (!(st && st.completed)) saveSession();
+    persistTimer();
+  });
+}
+
 function toggleTimer() {
   if (running) {
-    clearInterval(interval); running = false;
+    clearInterval(interval); running = false; timerEndAt = null;
     document.getElementById('startLabel').textContent = '继续';
     document.getElementById('timerLabel').textContent = '已暂停';
     setPlayIcon('play');
+    persistTimer();
   } else {
+    if (timeLeft <= 0) timeLeft = totalTime; // 完成后再次点击 = 重新开始一轮
     running = true;
+    timerEndAt = Date.now() + timeLeft * 1000;
     document.getElementById('startLabel').textContent = '暂停';
     setPlayIcon('pause');
-    document.getElementById('timerLabel').textContent = mode === 'pomodoro' ? '专注中' : mode === 'deep' ? '深度工作中' : '自定义专注中';
-    interval = setInterval(() => {
-      if (timeLeft <= 0) {
-        clearInterval(interval); running = false;
-        document.getElementById('startLabel').textContent = '开始';
-        setPlayIcon('play');
-        document.getElementById('timerLabel').textContent = '完成 · 休息一下';
-        document.getElementById('timerProgress').style.width = '100%';
-        saveSession();
-        return;
-      }
-      timeLeft--;
-      updateTimerDisplay();
-      document.getElementById('timerProgress').style.width = Math.round(((totalTime - timeLeft) / totalTime) * 100) + '%';
-      updateFocusScore(); updateFocusTime();
-    }, 1000);
+    document.getElementById('timerLabel').textContent = runningLabel();
+    persistTimer();
+    startTick();
   }
 }
 
 function resetTimer() {
-  clearInterval(interval); running = false; timeLeft = totalTime;
+  clearInterval(interval); running = false; timerEndAt = null; timeLeft = totalTime;
   updateTimerDisplay();
   document.getElementById('timerProgress').style.width = '0%';
   document.getElementById('startLabel').textContent = '开始';
   setPlayIcon('play');
   document.getElementById('timerLabel').textContent = '待开始';
   document.getElementById('focusScore').textContent = '—';
+  document.getElementById('focusTime').textContent = '00:00';
+  document.getElementById('focusTimeSub').textContent = '未开始';
+  persistTimer();
+}
+
+/* ── 计时器持久化 / 跨标签页恢复 ── */
+function buildTimerState() {
+  return {
+    mode, totalTime, customMinutes,
+    running,
+    endAt: running ? timerEndAt : null,
+    remaining: running ? null : timeLeft,
+    completed: !running && timeLeft <= 0,
+    writer: TAB_ID,
+  };
+}
+
+function persistTimer() {
+  chrome.storage.local.set({ [TIMER_KEY]: buildTimerState() });
+}
+
+// 把存储中的计时器状态应用到当前页面（用于初始加载与跨标签页同步）
+function applyTimerState(st) {
+  if (!st) return;
+  mode = st.mode || 'pomodoro';
+  customMinutes = st.customMinutes || customMinutes;
+  if (mode === 'custom') MODES.custom = customMinutes * 60;
+  totalTime = st.totalTime || MODES[mode] || MODES.pomodoro;
+
+  ['pomodoro', 'deep', 'custom'].forEach((x) =>
+    document.getElementById('mode' + x[0].toUpperCase() + x.slice(1)).classList.toggle('active', x === mode));
+
+  clearInterval(interval);
+
+  if (st.running && st.endAt) {
+    const remain = Math.round((st.endAt - Date.now()) / 1000);
+    if (remain > 0) {
+      running = true; timerEndAt = st.endAt; timeLeft = remain;
+      document.getElementById('startLabel').textContent = '暂停';
+      setPlayIcon('pause');
+      document.getElementById('timerLabel').textContent = runningLabel();
+      startTick();
+    } else {
+      // 在标签页关闭期间已走完
+      running = false; timerEndAt = null; timeLeft = 0;
+      finishUI();
+      if (!st.completed) { saveSession(); persistTimer(); }
+    }
+  } else if (st.completed) {
+    running = false; timerEndAt = null; timeLeft = 0;
+    finishUI();
+  } else {
+    running = false; timerEndAt = null;
+    timeLeft = (st.remaining != null) ? st.remaining : totalTime;
+    setPlayIcon('play');
+    if (timeLeft < totalTime) {
+      document.getElementById('startLabel').textContent = '继续';
+      document.getElementById('timerLabel').textContent = '已暂停';
+    } else {
+      document.getElementById('startLabel').textContent = '开始';
+      document.getElementById('timerLabel').textContent =
+        mode === 'pomodoro' ? '番茄时钟 · 待开始' : mode === 'deep' ? '深度工作 · 待开始' : `自定义 ${customMinutes}min · 待开始`;
+    }
+  }
+
+  updateTimerDisplay();
+  updateProgressBar();
+  if (running || timeLeft < totalTime) {
+    updateFocusScore(); updateFocusTime();
+  } else {
+    document.getElementById('focusScore').textContent = '—';
+    document.getElementById('focusTime').textContent = '00:00';
+    document.getElementById('focusTimeSub').textContent = '未开始';
+  }
+}
+
+function restoreTimer() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get([TIMER_KEY], (res) => {
+      applyTimerState(res[TIMER_KEY]);
+      resolve();
+    });
+  });
+}
+
+// 监听其他标签页对计时器状态的修改，实时同步本页
+function onTimerStorageChange(changes, area) {
+  if (area !== 'local' || !changes[TIMER_KEY]) return;
+  const st = changes[TIMER_KEY].newValue;
+  if (!st || st.writer === TAB_ID) return; // 忽略本页自身写入
+  applyTimerState(st);
 }
 
 function saveSession() {
@@ -474,6 +608,8 @@ async function init() {
   bindEvents();
   setupTabs();
   await loadFocus();
+  await restoreTimer();
+  chrome.storage.onChanged.addListener(onTimerStorageChange);
   document.getElementById('switchCount').textContent = switchLog.length;
   document.getElementById('harmCountInline').textContent = checkedHarms.size;
   renderChecklist();
