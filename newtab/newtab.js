@@ -249,6 +249,9 @@ let running = false, interval = null, switchLog = [], customMinutes = 45;
 // 计时器持久化：以墙钟终点时间(endAt)为锚点，跨刷新/新标签页继续走动
 let timerEndAt = null;
 const TIMER_KEY = 'focusTimerState';
+// 完成提醒开关（用户在计时器下方勾选，默认关闭）
+const NOTIFY_KEY = 'focusNotifyEnabled';
+let notifyEnabled = false;
 // 区分本标签页写入与其他标签页写入，避免 storage 变更回环
 const TAB_ID = Math.random().toString(36).slice(2);
 
@@ -370,12 +373,89 @@ function completeTimer() {
   running = false; timerEndAt = null; timeLeft = 0;
   finishUI();
   updateFocusScore(); updateFocusTime();
-  // 只记录一次会话：若其他标签页已标记完成则跳过
+  // 只记录一次会话 / 只提醒一次：若其他标签页已标记完成则跳过
   chrome.storage.local.get([TIMER_KEY], (res) => {
     const st = res[TIMER_KEY];
-    if (!(st && st.completed)) saveSession();
+    if (!(st && st.completed)) { saveSession(); notifyTimerDone(); }
     persistTimer();
   });
+}
+
+/* ── 完成提醒：页内弹窗 + 系统通知 + 提示音 ── */
+// 读取提醒开关并同步到复选框
+function loadNotifyPref() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get([NOTIFY_KEY], (res) => {
+      notifyEnabled = res[NOTIFY_KEY] === true;
+      const cb = document.getElementById('notifyToggle');
+      if (cb) cb.checked = notifyEnabled;
+      resolve();
+    });
+  });
+}
+
+function toggleNotifyPref(on) {
+  notifyEnabled = on;
+  chrome.storage.local.set({ [NOTIFY_KEY]: on });
+}
+
+function modeName() {
+  return mode === 'pomodoro' ? '番茄专注' : mode === 'deep' ? '深度工作' : '专注';
+}
+
+function notifyTimerDone() {
+  if (!notifyEnabled) return; // 用户未勾选「完成后提醒」时不打扰
+  const mins = Math.round(totalTime / 60);
+  showTimerDoneModal(mins);
+  playChime();
+  // 标签页不在前台时，用系统通知提醒，避免错过
+  if (document.visibilityState !== 'visible' && chrome.notifications) {
+    try {
+      chrome.notifications.create('bp-focus-done-' + Date.now(), {
+        type: 'basic',
+        iconUrl: chrome.runtime.getURL('icons/icon128.png'),
+        title: '专注完成 · 脑力守护',
+        message: `你已完成 ${mins} 分钟${modeName()}，休息一下吧。`,
+        priority: 2,
+      });
+    } catch (e) { /* 无 notifications 权限时忽略 */ }
+  }
+}
+
+function showTimerDoneModal(mins) {
+  const modal = document.getElementById('timerDoneModal');
+  if (!modal) return;
+  document.getElementById('tdmSub').textContent =
+    `你已完成 ${mins} 分钟${modeName()}，起身走一走，让前额叶恢复一下。`;
+  modal.hidden = false;
+  requestAnimationFrame(() => modal.classList.add('show'));
+}
+
+function hideTimerDoneModal() {
+  const modal = document.getElementById('timerDoneModal');
+  if (!modal) return;
+  modal.classList.remove('show');
+  setTimeout(() => { modal.hidden = true; }, 240);
+}
+
+// 用 Web Audio 合成一段轻柔的两声提示音，无需音频文件
+function playChime() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    [880, 1108.73].forEach((freq, i) => {
+      const osc = ctx.createOscillator(), gain = ctx.createGain();
+      osc.type = 'sine'; osc.frequency.value = freq;
+      const t = ctx.currentTime + i * 0.18;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.16, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(t); osc.stop(t + 0.5);
+    });
+    setTimeout(() => ctx.close(), 1500);
+  } catch (e) { /* 自动播放被拦截时忽略 */ }
 }
 
 function toggleTimer() {
@@ -451,7 +531,7 @@ function applyTimerState(st) {
       // 在标签页关闭期间已走完
       running = false; timerEndAt = null; timeLeft = 0;
       finishUI();
-      if (!st.completed) { saveSession(); persistTimer(); }
+      if (!st.completed) { saveSession(); notifyTimerDone(); persistTimer(); }
     }
   } else if (st.completed) {
     running = false; timerEndAt = null; timeLeft = 0;
@@ -492,7 +572,14 @@ function restoreTimer() {
 
 // 监听其他标签页对计时器状态的修改，实时同步本页
 function onTimerStorageChange(changes, area) {
-  if (area !== 'local' || !changes[TIMER_KEY]) return;
+  if (area !== 'local') return;
+  // 提醒开关跨标签页同步
+  if (changes[NOTIFY_KEY]) {
+    notifyEnabled = changes[NOTIFY_KEY].newValue === true;
+    const cb = document.getElementById('notifyToggle');
+    if (cb) cb.checked = notifyEnabled;
+  }
+  if (!changes[TIMER_KEY]) return;
   const st = changes[TIMER_KEY].newValue;
   if (!st || st.writer === TAB_ID) return; // 忽略本页自身写入
   applyTimerState(st);
@@ -601,6 +688,19 @@ function bindEvents() {
   document.getElementById('startBtn').addEventListener('click', toggleTimer);
   document.getElementById('resetBtn').addEventListener('click', resetTimer);
   document.getElementById('logSwitchBtn').addEventListener('click', logSwitch);
+
+  // 完成弹窗：休息 / 再来一轮 / 点击遮罩或 Esc 关闭
+  document.getElementById('tdmRestBtn').addEventListener('click', hideTimerDoneModal);
+  document.getElementById('tdmAgainBtn').addEventListener('click', () => { hideTimerDoneModal(); toggleTimer(); });
+  document.getElementById('timerDoneModal').addEventListener('click', (e) => {
+    if (e.target.id === 'timerDoneModal') hideTimerDoneModal();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') hideTimerDoneModal();
+  });
+
+  // 完成提醒开关
+  document.getElementById('notifyToggle').addEventListener('change', (e) => toggleNotifyPref(e.target.checked));
 }
 
 async function init() {
@@ -608,6 +708,7 @@ async function init() {
   bindEvents();
   setupTabs();
   await loadFocus();
+  await loadNotifyPref();
   await restoreTimer();
   chrome.storage.onChanged.addListener(onTimerStorageChange);
   document.getElementById('switchCount').textContent = switchLog.length;

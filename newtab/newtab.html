@@ -99,6 +99,11 @@
               <button class="timer-reset" id="resetBtn" title="重置">
                 <svg class="ic" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v4h4"/></svg></button>
             </div>
+
+            <label class="timer-notify" for="notifyToggle">
+              <input type="checkbox" id="notifyToggle">
+              <span>完成后弹窗提醒（含提示音）</span>
+            </label>
           </div>
         </div>
 
@@ -194,6 +199,21 @@
       </div>
     </div>
 
+  </div>
+
+  <!-- 专注完成弹窗 -->
+  <div id="timerDoneModal" class="tdm-overlay" hidden>
+    <div class="tdm-card glass">
+      <div class="tdm-ring">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
+      </div>
+      <div class="tdm-title">专注完成</div>
+      <div class="tdm-sub" id="tdmSub">这一轮专注结束了，休息一下吧。</div>
+      <div class="tdm-actions">
+        <button class="tdm-btn tdm-rest" id="tdmRestBtn">好的，休息一下</button>
+        <button class="tdm-btn tdm-again" id="tdmAgainBtn">再来一轮</button>
+      </div>
+    </div>
   </div>
 
   <div id="toast" class="toast"></div>
