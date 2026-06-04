@@ -357,3 +357,8 @@ body {
 .tdm-rest:hover { color: var(--ink); border-color: var(--ink-3); }
 .tdm-again { background: var(--teal); border: 1px solid var(--teal); color: #fff; font-weight: 500; }
 .tdm-again:hover { filter: brightness(1.07); }
+
+/* ── 完成提醒开关 ── */
+.timer-notify { display: flex; align-items: center; justify-content: center; gap: 8px;
+  margin-top: 14px; font-size: 12.5px; color: var(--ink-2); cursor: pointer; user-select: none; }
+.timer-notify input { width: 15px; height: 15px; cursor: pointer; accent-color: var(--teal); flex: none; }
