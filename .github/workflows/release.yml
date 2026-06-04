@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号 (例如 1.0.0)'
+        required: true
+        default: '1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: ver
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            V="${{ github.event.inputs.version }}"
+          else
+            V="${GITHUB_REF_NAME#v}"
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "Building version $V"
+
+      - name: Build extension zip
+        run: bash scripts/build.sh "${{ steps.ver.outputs.version }}"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.ver.outputs.version }}
+          name: 脑力守护 Brain Protector v${{ steps.ver.outputs.version }}
+          generate_release_notes: true
+          files: dist/brain-protector-v${{ steps.ver.outputs.version }}.zip
+          body: |
+            ## 🧠 脑力守护 · Brain Protector v${{ steps.ver.outputs.version }}
+
+            一款接管 Chrome 新标签页的专注守护扩展：实时追踪各网站浏览 / 创作时间、深度感知知乎话题分类，并内置番茄专注计时、有害行为自检与认知负荷分析。
+
+            ### 安装方式
+            1. 下载下方 `brain-protector-v${{ steps.ver.outputs.version }}.zip` 并解压
+            2. 打开 `chrome://extensions`，开启右上角「开发者模式」
+            3. 点击「加载已解压的扩展程序」，选择解压后的文件夹
+            4. 打开新标签页即可看到仪表盘
+
+            > 所有数据完全保存在本地 IndexedDB，绝不上传任何服务器。
