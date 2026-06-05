@@ -15,48 +15,12 @@
         <div class="name">脑力守护 <span class="greet" id="greet"></span></div>
       </div>
       <div class="header-actions">
-        <a class="link-btn" id="dashboardLink" href="../dashboard/dashboard.html">
-          <svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l3-4 3 3 4-6"/></svg>完整报表</a>
         <a class="link-btn" id="optionsLink" href="../options/options.html">
           <svg class="ic ic-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.9H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 2.9-1.2V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>设置</a>
         <button id="themeBtn">
           <span id="themeBtnIcon" style="display:inline-flex"></span>
           <span id="themeBtnLabel">暗黑</span>
         </button>
-      </div>
-    </div>
-
-    <!-- ── 顶部指标条 ── -->
-    <div class="metric-strip">
-      <div class="metric-card glass">
-        <div class="lbl">浏览总时长</div>
-        <div class="val" id="tdTotalBrowse">—</div>
-        <div class="sub">今日</div>
-      </div>
-      <div class="metric-card glass">
-        <div class="lbl">创作总时长</div>
-        <div class="val" id="tdTotalCreate" style="color:var(--teal)">—</div>
-        <div class="sub">键盘输入</div>
-      </div>
-      <div class="metric-card glass">
-        <div class="lbl">数码娱乐</div>
-        <div class="val" id="tdWasteTime">—</div>
-        <div class="sub" id="tdWasteSub">知乎话题</div>
-      </div>
-      <div class="metric-card glass">
-        <div class="lbl">专注分数</div>
-        <div class="val" id="focusScore">—</div>
-        <div class="sub">会话中</div>
-      </div>
-      <div class="metric-card glass">
-        <div class="lbl">专注时长</div>
-        <div class="val" id="focusTime">00:00</div>
-        <div class="sub" id="focusTimeSub">未开始</div>
-      </div>
-      <div class="metric-card glass">
-        <div class="lbl">切换 / 有害</div>
-        <div class="val"><span id="switchCount">0</span> <span style="font-size:16px;color:var(--ink-3)">/</span> <span id="harmCountInline" style="color:var(--crim)">0</span></div>
-        <div class="sub">次数</div>
       </div>
     </div>
 
@@ -73,6 +37,37 @@
 
     <!-- ════════ Tab：时间管理 ════════ -->
     <div class="tab-pane active" id="pane-time">
+      <div class="pane-toolbar">
+        <a class="link-btn" id="dashboardLink" href="../dashboard/dashboard.html">
+          <svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l3-4 3 3 4-6"/></svg>完整报表</a>
+      </div>
+      <div class="metric-strip metric-strip-time">
+        <div class="metric-card glass">
+          <div class="lbl">浏览总时长</div>
+          <div class="val" id="tdTotalBrowse">—</div>
+          <div class="sub">今日</div>
+        </div>
+        <div class="metric-card glass">
+          <div class="lbl">创作总时长</div>
+          <div class="val" id="tdTotalCreate" style="color:var(--teal)">—</div>
+          <div class="sub">键盘输入</div>
+        </div>
+        <div class="metric-card glass">
+          <div class="lbl">数码娱乐</div>
+          <div class="val" id="tdWasteTime">—</div>
+          <div class="sub" id="tdWasteSub">知乎话题</div>
+        </div>
+        <div class="metric-card glass">
+          <div class="lbl">专注分数</div>
+          <div class="val" id="focusScore">—</div>
+          <div class="sub">会话中</div>
+        </div>
+        <div class="metric-card glass">
+          <div class="lbl">专注时长</div>
+          <div class="val" id="focusTime">00:00</div>
+          <div class="sub" id="focusTimeSub">未开始</div>
+        </div>
+      </div>
       <div class="time-layout">
         <!-- 计时器 -->
         <div class="panel glass timer-panel">
@@ -160,6 +155,13 @@
 
     <!-- ════════ Tab：状态管理 ════════ -->
     <div class="tab-pane" id="pane-state">
+      <div class="metric-strip metric-strip-state">
+        <div class="metric-card glass">
+          <div class="lbl">切换 / 有害</div>
+          <div class="val"><span id="switchCount">0</span> <span style="font-size:16px;color:var(--ink-3)">/</span> <span id="harmCountInline" style="color:var(--crim)">0</span></div>
+          <div class="sub">次数</div>
+        </div>
+      </div>
       <div class="main-layout">
         <div>
           <!-- 切换记录 -->
