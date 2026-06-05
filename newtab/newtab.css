@@ -123,8 +123,7 @@ body {
 /* ── Metric strip ── */
 .metric-strip { display: grid; grid-template-columns: repeat(6,1fr); gap: 10px; margin-bottom: 18px; }
 .metric-strip-time { grid-template-columns: repeat(5,1fr); }
-.metric-strip-state { grid-template-columns: repeat(5,1fr); }
-@media (max-width: 760px) { .metric-strip, .metric-strip-time, .metric-strip-state { grid-template-columns: repeat(3,1fr); } }
+@media (max-width: 760px) { .metric-strip, .metric-strip-time { grid-template-columns: repeat(3,1fr); } }
 .metric-card { padding: 15px 16px; border-radius: var(--r-l); }
 
 /* ── Pane toolbar (per-tab actions, e.g. 完整报表) ── */
@@ -165,6 +164,12 @@ body {
 .time-layout { display: grid; grid-template-columns: 380px 1fr; gap: 18px; align-items: start; }
 .main-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
 @media (max-width: 820px) { .time-layout, .main-layout { grid-template-columns: 1fr; } }
+
+/* ── 切换记录 + 计数卡片并排 ── */
+.switch-row { display: flex; gap: 14px; align-items: stretch; margin-bottom: 18px; }
+.switch-row .switch-log-panel { flex: 1; min-width: 0; margin-bottom: 0; }
+.switch-metric { flex: 0 0 150px; align-self: stretch; display: flex; flex-direction: column; justify-content: center; }
+@media (max-width: 760px) { .switch-row { flex-direction: column; } .switch-metric { flex-basis: auto; } }
 
 /* ── Panels ── */
 .panel { border-radius: var(--r-l); padding: 20px 22px; margin-bottom: 18px; }

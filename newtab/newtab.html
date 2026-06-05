@@ -155,24 +155,24 @@
 
     <!-- ════════ Tab：状态管理 ════════ -->
     <div class="tab-pane" id="pane-state">
-      <div class="metric-strip metric-strip-state">
-        <div class="metric-card glass">
-          <div class="lbl">切换 / 有害</div>
-          <div class="val"><span id="switchCount">0</span> <span style="font-size:16px;color:var(--ink-3)">/</span> <span id="harmCountInline" style="color:var(--crim)">0</span></div>
-          <div class="sub">次数</div>
-        </div>
-      </div>
       <div class="main-layout">
         <div>
-          <!-- 切换记录 -->
-          <div class="panel glass">
-            <div class="panel-title">
-              <svg class="ic" viewBox="0 0 24 24"><path d="M16 3h5v5M21 3l-7 7M8 21H3v-5M3 21l7-7"/></svg>切换记录</div>
-            <button class="ctrl-btn" id="logSwitchBtn" style="width:100%;margin-bottom:12px;">
-              <svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>记录一次切换</button>
-            <ul class="log-list" id="switchLog">
-              <li class="log-empty">暂无记录</li>
-            </ul>
+          <!-- 切换记录 + 计数卡片 -->
+          <div class="switch-row">
+            <div class="panel glass switch-log-panel">
+              <div class="panel-title">
+                <svg class="ic" viewBox="0 0 24 24"><path d="M16 3h5v5M21 3l-7 7M8 21H3v-5M3 21l7-7"/></svg>切换记录</div>
+              <button class="ctrl-btn" id="logSwitchBtn" style="width:100%;margin-bottom:12px;">
+                <svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>记录一次切换</button>
+              <ul class="log-list" id="switchLog">
+                <li class="log-empty">暂无记录</li>
+              </ul>
+            </div>
+            <div class="metric-card glass switch-metric">
+              <div class="lbl">切换 / 有害</div>
+              <div class="val"><span id="switchCount">0</span> <span style="font-size:16px;color:var(--ink-3)">/</span> <span id="harmCountInline" style="color:var(--crim)">0</span></div>
+              <div class="sub">次数</div>
+            </div>
           </div>
 
           <!-- 有害行为 -->
