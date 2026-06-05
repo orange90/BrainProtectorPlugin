@@ -703,7 +703,78 @@ function bindEvents() {
   document.getElementById('notifyToggle').addEventListener('change', (e) => toggleNotifyPref(e.target.checked));
 }
 
+/* ════════════════════════════════════════
+   新标签页接管：弹窗检测 / 首次征询 / 开关
+   ════════════════════════════════════════ */
+let isPopupCtx = false;
+
+function setToggleState(on) {
+  const t = document.getElementById('ntToggle');
+  if (!t) return;
+  t.classList.toggle('on', on);
+  t.setAttribute('aria-checked', on ? 'true' : 'false');
+}
+
+function showConsent() {
+  const m = document.getElementById('consentModal');
+  if (m) m.hidden = false;
+}
+function hideConsent() {
+  const m = document.getElementById('consentModal');
+  if (m) m.hidden = true;
+}
+
+function bindNewtabPrefs() {
+  const toggle = document.getElementById('ntToggle');
+  if (toggle) toggle.addEventListener('click', () => {
+    const willOn = !toggle.classList.contains('on');
+    setToggleState(willOn);
+    chrome.storage.local.set({ newtabTakeover: willOn });
+  });
+
+  const accept = document.getElementById('consentAccept');
+  if (accept) accept.addEventListener('click', () => {
+    chrome.storage.local.set({ newtabTakeover: true });
+    setToggleState(true);
+    hideConsent();
+  });
+
+  const decline = document.getElementById('consentDecline');
+  if (decline) decline.addEventListener('click', () => {
+    chrome.storage.local.set({ newtabTakeover: false });
+    setToggleState(false);
+    hideConsent();
+    // 在真实新标签页中拒绝接管时，立即跳转空白页以体现效果
+    if (!isPopupCtx) location.replace('about:blank');
+  });
+}
+
+/* 弹窗模式检测 + 读取接管偏好（未决定则首次征询）。
+   作为工具栏 popup 打开时无对应 tab → 加宽布局并展示提示条。 */
+function initNewtabPrefs() {
+  try {
+    chrome.tabs.getCurrent((tab) => {
+      isPopupCtx = !tab;
+      if (isPopupCtx) {
+        document.body.classList.add('is-popup');
+        const openBtn = document.getElementById('popupHintOpen');
+        if (openBtn) openBtn.addEventListener('click', () => {
+          chrome.tabs.create({});
+          window.close();
+        });
+      }
+      chrome.storage.local.get(['newtabTakeover'], (res) => {
+        const v = res.newtabTakeover;
+        setToggleState(v !== false);              // 仅显式关闭时为 off
+        if (v === undefined || v === null) showConsent();  // 首次使用：征询
+      });
+    });
+  } catch (_) { /* 非扩展环境，忽略 */ }
+}
+
 async function init() {
+  bindNewtabPrefs();
+  initNewtabPrefs();
   greet();
   bindEvents();
   setupTabs();

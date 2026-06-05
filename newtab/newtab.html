@@ -1,13 +1,21 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="nt-boot">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>新标签页 · 脑力守护</title>
   <link rel="stylesheet" href="newtab.css" />
+  <script src="newtab-guard.js"></script>
 </head>
 <body>
   <div class="container">
+
+    <!-- 仅在工具栏弹窗（popup）模式下显示：建议使用新标签页 -->
+    <div class="popup-hint" id="popupHint">
+      <svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M14 3h7v7M21 3l-9 9M19 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/></svg>
+      <span>在「新标签页」中打开，空间更宽敞、体验更完整</span>
+      <button class="popup-hint-btn" id="popupHintOpen">打开新标签页</button>
+    </div>
 
     <div class="app-header">
       <div class="brand">
@@ -15,6 +23,10 @@
         <div class="name">脑力守护 <span class="greet" id="greet"></span></div>
       </div>
       <div class="header-actions">
+        <button class="nt-toggle on" id="ntToggle" role="switch" aria-checked="true" title="是否将浏览器新标签页替换为本面板">
+          <span class="nt-toggle-label">接管新标签页</span>
+          <span class="nt-toggle-track"><span class="nt-toggle-thumb"></span></span>
+        </button>
         <a class="link-btn" id="optionsLink" href="../options/options.html">
           <svg class="ic ic-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.9H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 2.9-1.2V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>设置</a>
         <button id="themeBtn">
@@ -201,6 +213,20 @@
       </div>
     </div>
 
+  </div>
+
+  <!-- 首次使用：征询是否接管新标签页 -->
+  <div id="consentModal" class="consent-overlay" hidden>
+    <div class="consent-card glass">
+      <div class="consent-mark">Brain Protector</div>
+      <h2 class="consent-title">接管新标签页？</h2>
+      <p class="consent-desc">脑力守护可以将浏览器的「新标签页」替换为这个专注面板，实时展示浏览 / 创作时长与番茄计时。<br />你也可以保持浏览器默认的新标签页——无论怎么选，点击工具栏图标都能随时打开本面板。</p>
+      <div class="consent-actions">
+        <button class="consent-btn primary" id="consentAccept">接管新标签页</button>
+        <button class="consent-btn ghost" id="consentDecline">保持浏览器默认</button>
+      </div>
+      <div class="consent-foot">可随时在右上角的开关中更改</div>
+    </div>
   </div>
 
   <!-- 专注完成弹窗 -->
