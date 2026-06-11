@@ -85,6 +85,15 @@
       100% { box-shadow: var(--shadow), inset 0 1px 0 var(--hi-line), 0 0 0 0 transparent; }
     }
     .panel.panel-focus { animation: panelFocusPulse 1.6s ease-out 1; border-color: var(--accent-bd); }
+    details.advanced { margin-top:10px; border:1px dashed var(--line-2); border-radius:var(--r-m); background:rgba(255,255,255,0.35); }
+    [data-theme="dark"] details.advanced { background:rgba(255,255,255,0.03); }
+    details.advanced > summary { cursor:pointer; list-style:none; padding:8px 12px; font-size:13px; color:var(--ink-2); user-select:none; display:flex; align-items:center; gap:6px; }
+    details.advanced > summary::-webkit-details-marker { display:none; }
+    details.advanced > summary::before { content:"▸"; font-size:11px; color:var(--ink-3); transition:transform .15s ease; }
+    details.advanced[open] > summary::before { transform:rotate(90deg); }
+    details.advanced > summary:hover { color:var(--ink); }
+    details.advanced .advanced-body { padding:4px 12px 12px; }
+    details.advanced .advanced-body .hint { margin:0 0 8px; font-size:12px; color:var(--ink-3); }
   </style>
   <script src="theme-init.js"></script>
 </head>
@@ -169,12 +178,15 @@
             <td class="cat-name">温度(0~2)</td>
             <td><input type="number" id="aiTemperature" min="0" max="2" step="0.1" placeholder="0.6" style="max-width:120px" /></td>
           </tr>
-          <tr>
-            <td class="cat-name" style="vertical-align:top;padding-top:14px">系统提示词</td>
-            <td><textarea id="aiSystemPrompt" placeholder="留空将使用内置中文行为教练提示词，可自定义以约束分析风格、语气或目标。"></textarea></td>
-          </tr>
         </tbody>
       </table>
+      <details class="advanced">
+        <summary>高级选项 · 自定义系统提示词（可选）</summary>
+        <div class="advanced-body">
+          <div class="hint">仅在「开始 AI 分析」时生效，不影响「测试连通性」。留空将使用内置中文行为教练提示词。</div>
+          <textarea id="aiSystemPrompt" placeholder="留空将使用内置中文行为教练提示词，可自定义以约束分析风格、语气或目标。"></textarea>
+        </div>
+      </details>
       <div class="actions">
         <button class="btn" id="aiTestBtn">
           <svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M5 12l4 4L19 6"/></svg>测试连通性</button>
