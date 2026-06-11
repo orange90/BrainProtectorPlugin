@@ -152,64 +152,6 @@ body { font-family: var(--font); color: var(--ink); min-width: 680px;
 
 .empty { font-size: 12.5px; color: var(--ink-3); padding: 8px 0; }
 
-/* ── AI 行为洞察 ── */
-.ai-hint { font-size: 11.5px; color: var(--ink-3); margin-bottom: 12px; line-height: 1.6; }
-.ai-output { font-size: 13px; color: var(--ink); line-height: 1.75;
-  background: var(--sunk); border: 1px solid var(--line); border-radius: var(--r-m);
-  padding: 14px 16px; min-height: 60px; word-break: break-word; }
-.ai-output:empty { display: none; }
-.ai-output.loading { color: var(--ink-3); font-style: italic; white-space: pre-wrap; }
-.ai-output.error { color: var(--crim); border-color: rgba(163,58,58,0.35); background: rgba(163,58,58,0.06); white-space: pre-wrap; }
-.ai-output h1, .ai-output h2, .ai-output h3, .ai-output h4 {
-  font-size: 13.5px; font-weight: 650; color: var(--ink);
-  margin: 12px 0 6px; letter-spacing: 0.01em;
-}
-.ai-output h1 { font-size: 15px; }
-.ai-output h2 { font-size: 14px; }
-.ai-output h1:first-child, .ai-output h2:first-child, .ai-output h3:first-child { margin-top: 0; }
-.ai-output ul, .ai-output ol { padding-left: 22px; margin: 4px 0 8px; }
-.ai-output li { margin: 2px 0; }
-.ai-output li > p { margin: 2px 0; }
-.ai-output p { margin: 4px 0; }
-.ai-output strong { color: var(--ink); font-weight: 650; }
-.ai-output em { font-style: italic; color: var(--ink-2); }
-.ai-output a { color: var(--teal); text-decoration: none; border-bottom: 1px dashed currentColor; }
-.ai-output a:hover { opacity: 0.8; }
-.ai-output code { background: rgba(20,30,50,0.06); padding: 1px 5px; border-radius: 4px;
-  font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
-[data-theme="dark"] .ai-output code { background: rgba(255,255,255,0.08); }
-.ai-output pre { background: rgba(20,30,50,0.06); border: 1px solid var(--line);
-  border-radius: var(--r-s); padding: 10px 12px; margin: 8px 0;
-  overflow-x: auto; font-size: 12px; line-height: 1.55;
-  font-family: ui-monospace, "SF Mono", Menlo, monospace; }
-.ai-output pre code { background: transparent; padding: 0; border-radius: 0; font-size: 12px; }
-[data-theme="dark"] .ai-output pre { background: rgba(255,255,255,0.04); }
-.ai-output blockquote { margin: 8px 0; padding: 6px 12px;
-  border-left: 3px solid var(--teal); background: rgba(56,142,142,0.06);
-  color: var(--ink-2); border-radius: 0 var(--r-s) var(--r-s) 0; }
-[data-theme="dark"] .ai-output blockquote { background: rgba(120,200,200,0.08); }
-.ai-output table { border-collapse: collapse; margin: 8px 0; font-size: 12.5px;
-  width: 100%; display: block; overflow-x: auto; }
-.ai-output th, .ai-output td { border: 1px solid var(--line);
-  padding: 6px 10px; text-align: left; vertical-align: top; }
-.ai-output th { background: rgba(20,30,50,0.04); font-weight: 600; color: var(--ink); }
-[data-theme="dark"] .ai-output th { background: rgba(255,255,255,0.05); }
-.ai-output hr { border: none; border-top: 1px solid var(--line); margin: 10px 0; }
-.ai-output img { max-width: 100%; border-radius: var(--r-s); }
-.ai-output .mermaid-wrap { margin: 10px 0; padding: 10px; background: var(--paper);
-  border: 1px solid var(--line); border-radius: var(--r-s); overflow-x: auto;
-  display: flex; justify-content: center; }
-[data-theme="dark"] .ai-output .mermaid-wrap { background: rgba(255,255,255,0.02); }
-.ai-output .mermaid { font-family: inherit; min-width: 0; }
-.ai-output .mermaid svg { max-width: 100%; height: auto; display: block; }
-.ai-output .mermaid-error { color: var(--crim); white-space: pre-wrap;
-  background: rgba(163,58,58,0.06); border: 1px solid rgba(163,58,58,0.30);
-  padding: 8px 10px; border-radius: var(--r-s); font-size: 12px; }
-.ai-output .ai-fallback { white-space: pre-wrap; font-family: inherit;
-  background: transparent; border: none; padding: 0; }
-.ai-meta { font-size: 10.5px; color: var(--ink-3); margin-top: 8px; text-align: right;
-  font-variant-numeric: tabular-nums; }
-
 /* ===== 周报：易分心时段 + 连续无中断段 ===== */
 .weekly-h3 { font-size: 12px; font-weight: 600; color: var(--ink-2);
   letter-spacing: 0.04em; margin: 14px 0 8px; }

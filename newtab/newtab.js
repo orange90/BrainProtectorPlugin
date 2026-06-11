@@ -1427,7 +1427,6 @@ function fmtAIShortTime(ts) {
 
 function renderAIRecap() {
   const hint = document.getElementById('aiLastRunHint');
-  updateAIExportBtn();
   const latest = _aiReports && _aiReports[0];
   if (!latest) {
     if (hint) hint.textContent = '';
@@ -1438,14 +1437,6 @@ function renderAIRecap() {
     + '（最近 ' + (latest.days || 7) + ' 天）';
   if (hint) hint.textContent = ' · ' + timeText;
   renderAIHistoryList();
-}
-
-function updateAIExportBtn() {
-  const btn = document.getElementById('aiExportBtn');
-  if (!btn) return;
-  const active = _aiActiveReport();
-  const has = !!(active && active.reply);
-  btn.hidden = !has;
 }
 
 function renderAIHistoryList() {
@@ -1488,7 +1479,6 @@ function renderAIHistoryList() {
         renderAIRecapIntoModalOutput();
       }
       renderAIHistoryList();
-      updateAIExportBtn();
     });
   });
 }
@@ -1511,7 +1501,17 @@ function renderAIRecapIntoModalOutput() {
     + `）${r.record_count != null ? ' · ' + r.record_count + ' 条记录' : ''}`
     + `${r.switches != null ? ' · 切换 ' + r.switches + ' 次' : ''}`
     + `${r.cost ? ' · 耗时 ' + escAI(r.cost) : ''}</div>`;
-  setAIOutput(renderAIMarkdown(r.reply) + meta);
+  const exportBtnHtml = `<button type="button" class="ai-output-export" id="aiOutputExportBtn" title="导出本份报告为 Markdown 文件">`
+    + `<svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>导出`
+    + `</button>`;
+  setAIOutput(exportBtnHtml + renderAIMarkdown(r.reply) + meta);
+  const btn = document.getElementById('aiOutputExportBtn');
+  if (btn) {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      exportAIReport(r);
+    });
+  }
 }
 
 function saveAILastReport(report) {
@@ -1546,8 +1546,8 @@ function loadAILastReport() {
   } catch (e) { /* ignore */ }
 }
 
-function exportAILastReport() {
-  const r = _aiActiveReport();
+function exportAIReport(report) {
+  const r = report || _aiActiveReport();
   if (!r || !r.reply) {
     if (typeof showToast === 'function') showToast('暂无可导出的报告，请先生成一次 AI 分析', 'warn');
     return;
@@ -1583,6 +1583,10 @@ function exportAILastReport() {
   }
 }
 
+function exportAILastReport() {
+  return exportAIReport(_aiActiveReport());
+}
+
 /* —— AI 洞察弹窗 —— */
 function openAIInsightModal() {
   const m = document.getElementById('aiInsightModal');
@@ -1598,7 +1602,6 @@ function openAIInsightModal() {
   } else {
     renderAIRecapIntoModalOutput();
   }
-  updateAIExportBtn();
 }
 function closeAIInsightModal() {
   const m = document.getElementById('aiInsightModal');
@@ -1612,8 +1615,6 @@ function initAIInsightPanel() {
   if (btn) btn.addEventListener('click', runAIAnalysis);
   const cfg = document.getElementById('aiCfgBtn');
   if (cfg) cfg.addEventListener('click', openOptionsAtAIPanel);
-  const exportBtn = document.getElementById('aiExportBtn');
-  if (exportBtn) exportBtn.addEventListener('click', exportAILastReport);
 
   // 顶栏「AI 洞察」按钮
   const openBtn = document.getElementById('aiInsightOpenBtn');
