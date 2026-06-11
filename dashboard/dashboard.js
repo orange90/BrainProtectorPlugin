@@ -1,4 +1,4 @@
-/* global BPDB, BPCat */
+/* global BPDB, BPCat, BPAI */
 'use strict';
 
 /* 主题偏好：'system' | 'light' | 'dark'（system 跟随操作系统） */
@@ -95,6 +95,7 @@ async function main() {
   _weekRecords = weekRecords;
   populateTrendSelect(weekRecords);
   renderWeekTrend(weekRecords);
+  renderWeeklyReport(weekRecords, categories);
 }
 
 function aggBy(records, keyFn) {
@@ -292,8 +293,294 @@ function renderWeekTrend(weekRecords) {
     `<span><i class="dot" style="background:${color}"></i>${esc(BPCat.prettyDomain(domain))} · 每日访问时长</span>`;
 }
 
+/* ───────── 周报：易分心时段 + 连续无中断段 ───────── */
+
+function isDistractCategory(cat, categories) {
+  const def = categories && categories[cat];
+  if (!def) return false;
+  return (def.alert_threshold_minutes || 0) > 0;
+}
+
+/** 将一条记录按 [start_at, start_at+duration] 摊到 24 个小时桶里 */
+function spreadToHours(rec, bucketsTotal, bucketsDistract, isDistract) {
+  const dur = (rec.duration_seconds || 0) * 1000;
+  if (dur <= 0) return;
+  let start = rec.start_at || 0;
+  if (!start) return;
+  let end = start + dur;
+  while (start < end) {
+    const d = new Date(start);
+    const hour = d.getHours();
+    const hourEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), hour + 1, 0, 0, 0).getTime();
+    const chunk = Math.min(end, hourEnd) - start;
+    const sec = chunk / 1000;
+    bucketsTotal[hour] += sec;
+    if (isDistract) bucketsDistract[hour] += sec;
+    start = hourEnd;
+  }
+}
+
+function renderWeeklyReport(weekRecords, categories) {
+  const subEl = document.getElementById('weeklySub');
+  const heatEl = document.getElementById('hourHeatmap');
+  const axisEl = document.getElementById('hourAxis');
+  const topEl = document.getElementById('distractTop');
+  const streakEl = document.getElementById('streakList');
+  const kpiEl = document.getElementById('weeklyKpis');
+  if (!heatEl || !streakEl) return;
+
+  const start = daysAgoKey(6), end = daysAgoKey(0);
+  if (subEl) subEl.textContent = start + ' → ' + end;
+
+  // 1) 按小时聚合：总时长 / 分心时长
+  const total = new Array(24).fill(0);
+  const distract = new Array(24).fill(0);
+  let totalSec = 0, distractSec = 0;
+  for (const r of weekRecords) {
+    if (!r.start_at) continue;
+    const isD = isDistractCategory(r.category, categories);
+    spreadToHours(r, total, distract, isD);
+    totalSec += r.duration_seconds || 0;
+    if (isD) distractSec += r.duration_seconds || 0;
+  }
+
+  const maxDistract = Math.max(1, ...distract);
+  heatEl.innerHTML = total.map((tSec, h) => {
+    const dSec = distract[h];
+    const ratio = dSec / maxDistract;
+    const op = dSec > 0 ? (0.18 + ratio * 0.82).toFixed(2) : 0;
+    const pct = tSec > 0 ? Math.round(dSec / tSec * 100) : 0;
+    const tip = `${String(h).padStart(2, '0')}:00–${String(h + 1).padStart(2, '0')}:00 · 分心 ${fmtDur(dSec)} / 共 ${fmtDur(tSec)}（${pct}%）`;
+    return `<div class="hh-cell" style="background:rgba(163,58,58,${op})" title="${esc(tip)}">${h % 3 === 0 ? '' : ''}</div>`;
+  }).join('');
+  if (axisEl) {
+    axisEl.innerHTML = Array.from({ length: 24 }, (_, h) =>
+      `<span class="hh-tick">${h % 6 === 0 ? String(h).padStart(2, '0') : ''}</span>`).join('');
+  }
+
+  // 2) Top 3 分心时段
+  const topHours = distract.map((v, h) => ({ h, v }))
+    .filter((x) => x.v > 0).sort((a, b) => b.v - a.v).slice(0, 3);
+  if (topEl) {
+    if (!topHours.length) {
+      topEl.innerHTML = '<div class="empty">本周暂无分心时段</div>';
+    } else {
+      topEl.innerHTML = '<div class="distract-hint">最易分心时段：</div>' +
+        topHours.map((x, i) => {
+          const pct = total[x.h] > 0 ? Math.round(x.v / total[x.h] * 100) : 0;
+          return `<span class="distract-chip">#${i + 1} ${String(x.h).padStart(2, '0')}:00 · ${fmtDur(x.v)} · ${pct}%</span>`;
+        }).join('');
+    }
+  }
+
+  // 3) KPI 概览
+  if (kpiEl) {
+    const distractPct = totalSec > 0 ? Math.round(distractSec / totalSec * 100) : 0;
+    const peak = topHours[0];
+    kpiEl.innerHTML = [
+      { lbl: '本周总活跃', val: fmtDur(totalSec), sub: '近 7 天', color: 'var(--ink)' },
+      { lbl: '分心总时长', val: fmtDur(distractSec), sub: distractPct + '% 占比', color: 'var(--crim)' },
+      { lbl: '最分心小时', val: peak ? (String(peak.h).padStart(2, '0') + ':00') : '—', sub: peak ? fmtDur(peak.v) : '暂无', color: 'var(--steel)' },
+    ].map((c) =>
+      `<div class="card"><div class="lbl">${c.lbl}</div><div class="val" style="color:${c.color}">${esc(c.val)}</div><div class="sub">${esc(c.sub)}</div></div>`
+    ).join('');
+  }
+
+  // 4) 连续无中断段：按 start_at 排序，相邻同域名且 gap < 60s 合并
+  const recs = weekRecords
+    .filter((r) => r.start_at && (r.duration_seconds || 0) > 0)
+    .slice()
+    .sort((a, b) => a.start_at - b.start_at);
+  const GAP_MS = 60 * 1000;
+  const streaks = [];
+  let cur = null;
+  for (const r of recs) {
+    const rStart = r.start_at;
+    const rEnd = rStart + (r.duration_seconds || 0) * 1000;
+    if (cur && r.domain === cur.domain && (rStart - cur.end) <= GAP_MS) {
+      cur.end = Math.max(cur.end, rEnd);
+      cur.sec += r.duration_seconds || 0;
+      cur.category = cur.category || r.category;
+      cur.time_type = cur.time_type || r.time_type;
+    } else {
+      if (cur) streaks.push(cur);
+      cur = { domain: r.domain, start: rStart, end: rEnd, sec: r.duration_seconds || 0,
+              category: r.category, time_type: r.time_type };
+    }
+  }
+  if (cur) streaks.push(cur);
+
+  const topStreaks = streaks
+    .filter((s) => s.domain && (s.end - s.start) >= 5 * 60 * 1000)  // 仅展示 ≥5 分钟
+    .sort((a, b) => (b.end - b.start) - (a.end - a.start))
+    .slice(0, 5);
+
+  if (!topStreaks.length) {
+    streakEl.innerHTML = '<div class="empty">本周暂无 5 分钟以上的连续段</div>';
+  } else {
+    const max = Math.max(1, ...topStreaks.map((s) => s.end - s.start));
+    streakEl.innerHTML = topStreaks.map((s) => {
+      const lenMs = s.end - s.start;
+      const lenSec = Math.round(lenMs / 1000);
+      const pct = Math.round(lenMs / max * 100);
+      const dt = new Date(s.start);
+      const when = `${dt.getMonth() + 1}/${dt.getDate()} ${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+      const tt = s.time_type === 'creating' ? '创作' : '浏览';
+      const ttColor = s.time_type === 'creating' ? 'var(--teal)' : 'var(--steel)';
+      return `<div class="row">
+        <span class="name" title="${esc(s.domain)}">${esc(BPCat.prettyDomain(s.domain))}</span>
+        <div class="track"><div class="fill" style="width:${pct}%;background:${ttColor}"></div></div>
+        <span class="val">${fmtDur(lenSec)} · <span style="color:var(--ink-3)">${esc(when)} · ${tt}</span></span>
+      </div>`;
+    }).join('');
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   main();
   // 面板打开期间每 2s 刷新：实时反映进行中的浏览/创作时间与新落盘的记录
   setInterval(main, 2000);
+  initAIPanel();
 });
+
+/* ───────── AI 行为洞察 ───────── */
+
+let _aiBusy = false;
+let _mermaidReady = false;
+let _mermaidSeq = 0;
+
+function escAI(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function ensureMermaid() {
+  if (typeof window.mermaid === 'undefined') return null;
+  const dark = resolvedDark();
+  if (!_mermaidReady) {
+    try {
+      window.mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: 'strict',
+        theme: dark ? 'dark' : 'default',
+        fontFamily: 'inherit',
+        themeVariables: dark
+          ? { background: 'transparent', primaryColor: '#1e2a3a', primaryTextColor: '#e6ecf3', lineColor: '#5b6b80' }
+          : { background: 'transparent', primaryColor: '#eef3fb', primaryTextColor: '#1a2533', lineColor: '#6f7d92' },
+      });
+      _mermaidReady = true;
+    } catch (e) { /* ignore */ }
+  }
+  return window.mermaid;
+}
+
+function renderMarkdown(md) {
+  const text = String(md || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  if (typeof window.marked === 'undefined') {
+    return '<pre class="ai-fallback">' + escAI(text) + '</pre>';
+  }
+  try {
+    if (window.marked.setOptions) {
+      window.marked.setOptions({ breaks: true, gfm: true });
+    }
+    const renderer = new window.marked.Renderer();
+    const origCode = renderer.code.bind(renderer);
+    renderer.code = function (code, infostring) {
+      const lang = (infostring || '').trim().toLowerCase().split(/\s+/)[0] || '';
+      if (lang === 'mermaid') {
+        const id = 'bp-mmd-' + (++_mermaidSeq);
+        return '<div class="mermaid-wrap"><div class="mermaid" id="' + id + '">' + escAI(code) + '</div></div>';
+      }
+      return origCode(code, infostring);
+    };
+    const html = window.marked.parse(text, { renderer });
+    return html;
+  } catch (e) {
+    return '<pre class="ai-fallback">' + escAI(text) + '</pre>';
+  }
+}
+
+async function renderMermaidIn(container) {
+  if (!container) return;
+  const nodes = container.querySelectorAll('.mermaid');
+  if (!nodes.length) return;
+  const mm = ensureMermaid();
+  if (!mm) return;
+  for (const node of nodes) {
+    if (node.dataset.bpRendered === '1') continue;
+    const src = node.textContent || '';
+    const id = node.id || 'bp-mmd-x-' + (++_mermaidSeq);
+    try {
+      const { svg, bindFunctions } = await mm.render(id + '-svg', src);
+      node.innerHTML = svg;
+      if (typeof bindFunctions === 'function') bindFunctions(node);
+      node.dataset.bpRendered = '1';
+    } catch (err) {
+      node.innerHTML = '<pre class="mermaid-error">Mermaid 渲染失败：' + escAI(err && err.message ? err.message : String(err))
+        + '\n\n' + escAI(src) + '</pre>';
+      node.dataset.bpRendered = '1';
+    }
+  }
+}
+
+function setAIOutput(html, cls) {
+  const out = document.getElementById('aiOutput');
+  if (!out) return;
+  out.className = 'ai-output' + (cls ? ' ' + cls : '');
+  out.innerHTML = html;
+  renderMermaidIn(out);
+}
+
+async function runAIAnalysis() {
+  if (_aiBusy) return;
+  const btn = document.getElementById('aiRunBtn');
+  const sel = document.getElementById('aiDays');
+  const days = sel ? Math.max(1, parseInt(sel.value, 10) || 7) : 7;
+  _aiBusy = true;
+  if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
+  setAIOutput('正在汇总最近 ' + days + ' 天的本地行为数据并请求 AI…（一般 5–30 秒）', 'loading');
+  const startedAt = Date.now();
+  try {
+    const { metrics, reply } = await BPAI.analyze({ days });
+    const cost = ((Date.now() - startedAt) / 1000).toFixed(1) + 's';
+    const meta = `<div class="ai-meta">窗口：${escAI(metrics.window.start_day)} → ${escAI(metrics.window.end_day)} · `
+      + `${metrics.totals.record_count} 条记录 · 切换 ${metrics.switching.total_switches} 次 · 耗时 ${cost}</div>`;
+    setAIOutput(renderMarkdown(reply) + meta);
+  } catch (e) {
+    setAIOutput('❌ ' + escAI(e && e.message ? e.message : String(e)), 'error');
+  } finally {
+    _aiBusy = false;
+    if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+  }
+}
+
+function initAIPanel() {
+  const btn = document.getElementById('aiRunBtn');
+  if (btn) btn.addEventListener('click', runAIAnalysis);
+  const cfg = document.getElementById('aiCfgBtn');
+  if (cfg) cfg.addEventListener('click', () => openOptionsAtAIPanel());
+  // 主题切换后，已渲染的 mermaid 图配色会过时；下次分析会按新主题重渲染
+  themeMQ.addEventListener('change', () => { _mermaidReady = false; });
+  const themeBtn = document.getElementById('themeBtn');
+  if (themeBtn) themeBtn.addEventListener('click', () => { _mermaidReady = false; });
+}
+
+function openOptionsAtAIPanel() {
+  const target = chrome.runtime.getURL('options/options.html') + '#aiPanel';
+  try {
+    chrome.tabs.query({}, (tabs) => {
+      const base = chrome.runtime.getURL('options/options.html');
+      const existing = (tabs || []).find((t) => t.url && t.url.split('#')[0] === base);
+      if (existing) {
+        chrome.tabs.update(existing.id, { active: true, url: target }, () => {
+          if (existing.windowId != null && chrome.windows && chrome.windows.update) {
+            chrome.windows.update(existing.windowId, { focused: true });
+          }
+        });
+      } else {
+        chrome.tabs.create({ url: target });
+      }
+    });
+  } catch (e) {
+    chrome.runtime.openOptionsPage();
+  }
+}

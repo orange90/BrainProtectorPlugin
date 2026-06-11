@@ -22,6 +22,7 @@ INCLUDE=(
   manifest.json
   background.js
   src
+  vendor
   content-scripts
   newtab
   dashboard

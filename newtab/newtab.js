@@ -177,10 +177,11 @@ window.BPUtil = { escapeHtml, fmtDur };
    ════════════════════════════════════════ */
 const TAB_ORDER = ['time', 'task', 'state'];
 function setupTabs() {
-  const nav = document.getElementById('tabNav');
   const indicator = document.getElementById('tabIndicator');
   const btns = [...document.querySelectorAll('.tab-btn')];
-  const panes = document.querySelectorAll('.tab-pane');
+  const panes = [...document.querySelectorAll('.tab-pane')];
+  const wrap = document.getElementById('tabPanesWrap');
+  const paneOf = (name) => document.getElementById('pane-' + name);
   let current = 'time';
 
   function moveIndicator(animate) {
@@ -192,8 +193,9 @@ function setupTabs() {
     if (!animate) { void indicator.offsetWidth; indicator.style.transition = ''; }
   }
 
-  function activate(name, persist = true) {
-    if (!TAB_ORDER.includes(name)) return;
+  // 只负责状态同步（按钮高亮 / 指示条 / 持久化），不触发任何滚动
+  function syncState(name, persist) {
+    if (!TAB_ORDER.includes(name) || name === current) return;
     current = name;
     btns.forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
     panes.forEach((p) => p.classList.toggle('active', p.id === 'pane-' + name));
@@ -202,41 +204,49 @@ function setupTabs() {
     if (name === 'task' && window.BPTasks) window.BPTasks.render();
   }
 
-  btns.forEach((b) => b.addEventListener('click', () => activate(b.dataset.tab)));
+  // 程序化平滑滚动 → 浏览器自身完成动画，scroll 事件结尾会调用 syncState
+  function scrollToTab(name, smooth) {
+    if (!wrap) return syncState(name, true);
+    const p = paneOf(name);
+    if (!p) return;
+    wrap.scrollTo({ left: p.offsetLeft, behavior: smooth ? 'smooth' : 'auto' });
+  }
 
-  // 双指横向滑动（触控板 wheel.deltaX / 触摸屏 swipe）切换 Tab
-  let wheelCooldown = 0, wheelAccum = 0, wheelTimer = null;
-  window.addEventListener('wheel', (e) => {
-    if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return; // 仅响应横向手势
-    const now = Date.now();
-    if (now < wheelCooldown) return;
-    wheelAccum += e.deltaX;
-    clearTimeout(wheelTimer);
-    wheelTimer = setTimeout(() => { wheelAccum = 0; }, 220);
-    if (Math.abs(wheelAccum) < 60) return;
-    const dir = wheelAccum > 0 ? 1 : -1;
-    const idx = TAB_ORDER.indexOf(current);
-    const next = TAB_ORDER[idx + dir];
-    wheelAccum = 0;
-    if (next) { wheelCooldown = now + 520; activate(next); }
-  }, { passive: true });
+  // scroll 事件防抖：滚动停止 80ms 后判定停在哪一页
+  let settleTimer = null;
+  function onScroll() {
+    if (!wrap) return;
+    clearTimeout(settleTimer);
+    settleTimer = setTimeout(() => {
+      const w = wrap.clientWidth || 1;
+      const idx = Math.round(wrap.scrollLeft / w);
+      const name = TAB_ORDER[Math.max(0, Math.min(TAB_ORDER.length - 1, idx))];
+      if (name) syncState(name, true);
+    }, 80);
+  }
 
-  // 触摸屏左右滑动
-  let tx = 0, ty = 0;
-  window.addEventListener('touchstart', (e) => { tx = e.touches[0].clientX; ty = e.touches[0].clientY; }, { passive: true });
-  window.addEventListener('touchend', (e) => {
-    const dx = e.changedTouches[0].clientX - tx, dy = e.changedTouches[0].clientY - ty;
-    if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy)) return;
-    const idx = TAB_ORDER.indexOf(current);
-    const next = TAB_ORDER[idx + (dx < 0 ? 1 : -1)];
-    if (next) activate(next);
-  }, { passive: true });
+  btns.forEach((b) => b.addEventListener('click', () => {
+    const name = b.dataset.tab;
+    syncState(name, true);
+    scrollToTab(name, true);
+  }));
 
-  window.addEventListener('resize', () => moveIndicator(false));
+  if (wrap) wrap.addEventListener('scroll', onScroll, { passive: true });
+
+  window.addEventListener('resize', () => {
+    moveIndicator(false);
+    // 容器宽度变化后，scrollLeft 需要重新对齐到当前 Tab
+    if (wrap) scrollToTab(current, false);
+  });
 
   chrome.storage.local.get(['activeTab'], (res) => {
-    activate(TAB_ORDER.includes(res.activeTab) ? res.activeTab : 'time', false);
-    requestAnimationFrame(() => moveIndicator(false));
+    const name = TAB_ORDER.includes(res.activeTab) ? res.activeTab : 'time';
+    syncState(name, false);
+    // 等布局完成后再瞬时滚动到位（首次进入不显示动画）
+    requestAnimationFrame(() => {
+      moveIndicator(false);
+      scrollToTab(name, false);
+    });
   });
 }
 
@@ -255,55 +265,157 @@ let notifyEnabled = false;
 // 区分本标签页写入与其他标签页写入，避免 storage 变更回环
 const TAB_ID = Math.random().toString(36).slice(2);
 
-const harmItems = [
-  { id: 'h1', text: '查了手机/社交媒体', risk: '高度分心', severity: 'danger' },
-  { id: 'h2', text: '同时开着多个任务窗口', risk: '工作记忆超载', severity: 'danger' },
-  { id: 'h3', text: '边工作边听播客/视频', risk: '语言处理竞争', severity: 'warn' },
-  { id: 'h4', text: '连续工作超90分钟未休息', risk: '前额叶疲劳', severity: 'danger' },
-  { id: 'h5', text: '通知消息没有关闭', risk: '持续中断循环', severity: 'warn' },
-  { id: 'h6', text: '工作时一直回复消息', risk: '多线程激活', severity: 'danger' },
-  { id: 'h7', text: '跳过了午饭/喝水', risk: '血糖与认知下降', severity: 'warn' },
-  { id: 'h8', text: '昨晚睡眠不足7小时', risk: '记忆巩固受损', severity: 'danger' },
-];
-const checkedHarms = new Set();
+/* ──────────────────────────────────────────
+   状态管理：意图锚 + 自动切换 + 实时信号灯
+   ────────────────────────────────────────── */
+// 干扰域名集合（来自 rules/site-groups.json 中的社交/内容/视频三组）
+const DISTRACTION_DOMAINS = new Set([
+  'twitter.com', 'x.com', 'weibo.com', 'threads.net', 'facebook.com', 'instagram.com',
+  'zhihu.com', 'xiaohongshu.com', 'douban.com', 'tieba.baidu.com', 'reddit.com',
+  'youtube.com', 'bilibili.com', 'douyin.com', 'iqiyi.com', 'youku.com',
+]);
+
+// 意图锚：本轮专注的一句话目标 + 完成结算
+let intent = { text: '', startedAt: 0, sessionId: 0, history: [] };
+const INTENT_KEY_PREFIX = 'bp_intent_';
+function intentKey() { return INTENT_KEY_PREFIX + BPDB.todayKey(); }
+
+// 实时信号灯：4 个客观信号 0~100
+const signals = { fatigue: 0, multitask: 0, consistency: 0, distraction: 0 };
+let consistencyBreaks = 0;       // 当前番茄期间切出工作域的次数
+let distractionHitsToday = 0;    // 今天命中干扰域的切换次数
 
 /* ── 持久化（按天） ── */
 function focusKey() { return 'focus_' + BPDB.todayKey(); }
-function persistFocus() {
-  chrome.storage.local.set({ [focusKey()]: { switchLog, checkedHarms: [...checkedHarms] } });
-}
 function loadFocus() {
   return new Promise((resolve) => {
-    chrome.storage.local.get([focusKey()], (res) => {
+    chrome.storage.local.get([focusKey(), intentKey()], (res) => {
       const data = res[focusKey()];
       if (data) {
-        switchLog = data.switchLog || [];
-        (data.checkedHarms || []).forEach((id) => checkedHarms.add(id));
+        // 兼容老格式（旧版本 switchLog/checkedHarms），但本版本数据源已迁到 bp_autoSwitch_
+        distractionHitsToday = data.distractionHitsToday || 0;
       }
+      const it = res[intentKey()];
+      if (it) intent = Object.assign(intent, it);
       resolve();
     });
   });
 }
 
-function renderChecklist() {
-  document.getElementById('harmChecklist').innerHTML = harmItems.map((item) => `
-    <label class="check-row" for="${item.id}">
-      <input type="checkbox" id="${item.id}" ${checkedHarms.has(item.id) ? 'checked' : ''} data-harm="${item.id}">
-      <div>
-        <div class="check-text">${item.text}</div>
-        <div class="check-risk"><span class="badge badge-${item.severity === 'danger' ? 'danger' : 'warn'}">${item.risk}</span></div>
-      </div>
-    </label>`).join('');
-  document.querySelectorAll('#harmChecklist input[data-harm]').forEach((el) => {
-    el.addEventListener('change', () => toggleHarm(el.dataset.harm));
-  });
+function persistIntent() {
+  chrome.storage.local.set({ [intentKey()]: intent });
 }
 
-function toggleHarm(id) {
-  checkedHarms.has(id) ? checkedHarms.delete(id) : checkedHarms.add(id);
-  document.getElementById('harmCountInline').textContent = checkedHarms.size;
-  persistFocus();
+function renderIntent() {
+  const body = document.getElementById('intentBody');
+  if (!body) return;
+  if (intent.text) {
+    const mins = intent.startedAt ? Math.round((Date.now() - intent.startedAt) / 60000) : 0;
+    body.innerHTML = `
+      <div class="intent-active">
+        <div class="intent-text">${escapeHtml(intent.text)}</div>
+        <div class="intent-meta">
+          <span class="badge badge-ok">已锚定</span>
+          ${mins > 0 ? `<span class="intent-elapsed">已坚持 ${mins} 分钟</span>` : ''}
+          <button class="intent-clear" id="intentClearBtn">清除</button>
+        </div>
+      </div>`;
+    const btn = document.getElementById('intentClearBtn');
+    if (btn) btn.addEventListener('click', clearIntent);
+  } else {
+    body.innerHTML = `
+      <div class="intent-empty">还没设定本轮专注的目标。开始番茄时会自动询问，或现在就写下来 ↓</div>
+      <div class="intent-input-row">
+        <input type="text" id="intentInput" class="intent-input" maxlength="80" placeholder="例：写完报告第 3 节 / 改完 PR 反馈" />
+        <button class="ctrl-btn" id="intentSetBtn">
+          <svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg>锚定</button>
+      </div>`;
+    const btn = document.getElementById('intentSetBtn');
+    const inp = document.getElementById('intentInput');
+    if (btn) btn.addEventListener('click', () => setIntent(inp && inp.value));
+    if (inp) inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') setIntent(inp.value); });
+  }
+}
+
+function setIntent(text) {
+  const t = (text || '').trim();
+  if (!t) return;
+  intent.text = t;
+  intent.startedAt = Date.now();
+  intent.sessionId = Date.now();
+  persistIntent();
+  renderIntent();
   updateInsights(); updateCogBars();
+}
+
+function clearIntent() {
+  if (intent.text) intent.history.push({ text: intent.text, startedAt: intent.startedAt, endedAt: Date.now(), result: 'cleared' });
+  intent = { text: '', startedAt: 0, sessionId: 0, history: intent.history };
+  persistIntent();
+  renderIntent();
+  updateInsights(); updateCogBars();
+}
+
+function reviewIntent(result) {
+  if (!intent.text) return hideIntentReviewModal();
+  intent.history.push({ text: intent.text, startedAt: intent.startedAt, endedAt: Date.now(), result });
+  intent = { text: '', startedAt: 0, sessionId: 0, history: intent.history };
+  persistIntent();
+  hideIntentReviewModal();
+  renderIntent();
+  updateInsights(); updateCogBars();
+  showToast(result === 'done' ? '✦ 意图达成，干得漂亮' : '记下了 — 下一轮会更专注', result === 'done' ? 'ok' : 'warn');
+}
+
+function showIntentReviewModal() {
+  const modal = document.getElementById('intentReviewModal');
+  if (!modal || !intent.text) return;
+  document.getElementById('intentReviewText').textContent = `「${intent.text}」`;
+  modal.hidden = false;
+  requestAnimationFrame(() => modal.classList.add('show'));
+}
+function hideIntentReviewModal() {
+  const modal = document.getElementById('intentReviewModal');
+  if (!modal) return;
+  modal.classList.remove('show');
+  setTimeout(() => { modal.hidden = true; }, 240);
+}
+
+function showIntentInputModal(onConfirm, onSkip) {
+  const modal = document.getElementById('intentModal');
+  const inp = document.getElementById('intentModalInput');
+  if (!modal || !inp) { onConfirm && onConfirm(''); return; }
+  inp.value = intent.text || '';
+  modal.hidden = false;
+  requestAnimationFrame(() => { modal.classList.add('show'); inp.focus(); });
+  const confirm = () => {
+    const v = (inp.value || '').trim();
+    hideIntentInputModal();
+    if (v) setIntent(v);
+    onConfirm && onConfirm(v);
+  };
+  const skip = () => { hideIntentInputModal(); onSkip && onSkip(); };
+  document.getElementById('intentConfirmBtn').onclick = confirm;
+  document.getElementById('intentSkipBtn').onclick = skip;
+  inp.onkeydown = (e) => { if (e.key === 'Enter') confirm(); if (e.key === 'Escape') skip(); };
+}
+function hideIntentInputModal() {
+  const modal = document.getElementById('intentModal');
+  if (!modal) return;
+  modal.classList.remove('show');
+  setTimeout(() => { modal.hidden = true; }, 240);
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function showToast(msg, kind = 'ok') {
+  const t = document.getElementById('toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.className = 'toast show ' + (kind === 'warn' ? 'toast-warn' : kind === 'danger' ? 'toast-danger' : 'toast-ok');
+  setTimeout(() => { t.className = 'toast'; }, 2200);
 }
 
 function setMode(m) {
@@ -378,6 +490,8 @@ function completeTimer() {
     const st = res[TIMER_KEY];
     if (!(st && st.completed)) { saveSession(); notifyTimerDone(); }
     persistTimer();
+    // 番茄结束后弹意图结算（仅当本轮锚定过意图）
+    if (intent.text) setTimeout(showIntentReviewModal, 600);
   });
 }
 
@@ -466,14 +580,25 @@ function toggleTimer() {
     setPlayIcon('play');
     persistTimer();
   } else {
-    if (timeLeft <= 0) timeLeft = totalTime; // 完成后再次点击 = 重新开始一轮
-    running = true;
-    timerEndAt = Date.now() + timeLeft * 1000;
-    document.getElementById('startLabel').textContent = '暂停';
-    setPlayIcon('pause');
-    document.getElementById('timerLabel').textContent = runningLabel();
-    persistTimer();
-    startTick();
+    const start = () => {
+      if (timeLeft <= 0) timeLeft = totalTime; // 完成后再次点击 = 重新开始一轮
+      running = true;
+      consistencyBreaks = 0; // 新一轮清零专注一致性计数
+      timerEndAt = Date.now() + timeLeft * 1000;
+      document.getElementById('startLabel').textContent = '暂停';
+      setPlayIcon('pause');
+      document.getElementById('timerLabel').textContent = runningLabel();
+      persistTimer();
+      startTick();
+      refreshSignals();
+    };
+    // 从待开始 / 完成 状态启动时弹意图输入；从暂停继续不弹
+    const fresh = timeLeft <= 0 || timeLeft === totalTime;
+    if (fresh && !intent.text) {
+      showIntentInputModal(() => start(), () => start());
+    } else {
+      start();
+    }
   }
 }
 
@@ -599,8 +724,9 @@ function updateFocusTime() {
 
 function updateFocusScore() {
   const frac = (totalTime - timeLeft) / totalTime;
-  const penalty = Math.min(switchLog.length * 8, 40) + Math.min(checkedHarms.size * 10, 50);
-  const score = Math.max(0, Math.round(frac * 100) - penalty);
+  const switchPenalty = Math.min(switchLog.length * 8, 40);
+  const breakPenalty = Math.min(consistencyBreaks * 12, 40);
+  const score = Math.max(0, Math.round(frac * 100) - switchPenalty - breakPenalty);
   const el = document.getElementById('focusScore');
   el.textContent = score;
   el.style.color = score >= 70 ? 'var(--teal)' : score >= 40 ? 'var(--amber)' : 'var(--crim)';
@@ -608,44 +734,105 @@ function updateFocusScore() {
 
 function renderSwitchLog() {
   const ul = document.getElementById('switchLog');
+  if (!ul) return;
   if (!switchLog.length) {
-    ul.innerHTML = '<li class="log-empty">暂无记录</li>';
+    ul.innerHTML = '<li class="log-empty">尚未检测到切换 — 保持专注 ✦</li>';
     return;
   }
-  const recent = switchLog.slice(-5).reverse();
-  ul.innerHTML = recent.map((ts, i) => {
+  // switchLog 项可以是字符串 "HH:MM" 或对象 { ts, host, distract }
+  const recent = switchLog.slice().reverse();
+  ul.innerHTML = recent.map((it, i) => {
     const count = switchLog.length - i;
     const sev = count <= 2 ? 'ok' : count <= 5 ? 'warn' : 'danger';
-    const msg = count <= 2 ? '轻微分心' : count <= 5 ? '注意多任务' : '严重碎片化';
-    return `<li class="log-item"><span class="log-time">${ts}</span><span class="log-text">第${count}次 <span class="badge badge-${sev}">${msg}</span></span></li>`;
+    const obj = typeof it === 'string' ? { ts: it } : it;
+    const host = obj.host ? `<span class="log-host">${escapeHtml(obj.host)}</span>` : '';
+    const tag = obj.distract ? '<span class="badge badge-danger">干扰域</span>' : `<span class="badge badge-${sev}">${count <= 2 ? '轻微' : count <= 5 ? '多任务' : '碎片化'}</span>`;
+    return `<li class="log-item"><span class="log-time">${obj.ts || '--:--'}</span><span class="log-text">第${count}次 ${host}${tag}</span></li>`;
   }).join('');
 }
 
-function logSwitch() {
-  const now = new Date();
-  const ts = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
-  switchLog.push(ts);
-  document.getElementById('switchCount').textContent = switchLog.length;
-  renderSwitchLog();
-  persistFocus();
-  updateInsights(); updateCogBars();
-  if (running) updateFocusScore();
+// 信号灯指标定义（数据已由 refreshSignals 写入 signals 对象）
+const SIGNAL_DEFS = [
+  { key: 'fatigue',     label: '疲劳',     icon: '🌙', tip: '基于活跃时长与系统 idle' },
+  { key: 'multitask',   label: '多任务',   icon: '🔀', tip: '当前打开的跨域名标签数' },
+  { key: 'consistency', label: '专注一致', icon: '🎯', tip: '番茄期间切出工作域的次数' },
+  { key: 'distraction', label: '干扰命中', icon: '📵', tip: '今天切换到社交 / 视频 / 内容站的次数' },
+];
+
+function renderSignalGrid() {
+  const root = document.getElementById('signalGrid');
+  if (!root) return;
+  root.innerHTML = SIGNAL_DEFS.map((d) => {
+    const v = Math.min(Math.round(signals[d.key] || 0), 100);
+    const level = v < 30 ? 'ok' : v < 60 ? 'warn' : 'danger';
+    return `<div class="signal-card signal-${level}" title="${d.tip}">
+      <div class="signal-head"><span class="signal-icon">${d.icon}</span><span class="signal-label">${d.label}</span></div>
+      <div class="signal-bar"><div class="signal-fill" style="width:${v}%"></div></div>
+      <div class="signal-val">${v}<span class="signal-unit">/100</span></div>
+    </div>`;
+  }).join('');
+}
+
+// 把所有客观信号统一刷新到 signals 对象
+async function refreshSignals() {
+  // 多任务：所有窗口标签去重后的根域数
+  signals.multitask = await new Promise((r) => {
+    try {
+      chrome.tabs.query({}, (tabs) => {
+        const hosts = new Set();
+        (tabs || []).forEach((t) => {
+          try {
+            const u = new URL(t.url || '');
+            if (u.protocol.startsWith('http')) hosts.add(rootDomain(u.hostname));
+          } catch (e) {}
+        });
+        // 6 个不同站点起算危险，>= 12 满格
+        r(Math.min(Math.max(hosts.size - 2, 0) * 12, 100));
+      });
+    } catch (e) { r(0); }
+  });
+
+  // 干扰命中：今天命中干扰域名的切换次数
+  signals.distraction = Math.min(distractionHitsToday * 18, 100);
+
+  // 专注一致性：番茄期间切出工作域的次数（越多越糟）
+  signals.consistency = running ? Math.min(consistencyBreaks * 20, 100) : 0;
+
+  // 疲劳：累计活跃时间 + idle 状态
+  signals.fatigue = await new Promise((r) => {
+    try {
+      chrome.idle.queryState(60, (state) => {
+        // 90 分钟连续活跃 = 满格；idle 时降一档；locked 时大幅降
+        const activeMins = running ? Math.round((totalTime - timeLeft) / 60) : Math.min(switchLog.length * 3, 90);
+        let base = Math.min(activeMins / 90 * 100, 100);
+        if (state === 'idle') base = Math.max(0, base - 20);
+        if (state === 'locked') base = Math.max(0, base - 50);
+        r(Math.round(base));
+      });
+    } catch (e) { r(0); }
+  });
+
+  renderSignalGrid();
+  updateCogBars();
+  updateInsights();
+}
+
+function rootDomain(host) {
+  const p = (host || '').split('.');
+  return p.length >= 2 ? p.slice(-2).join('.') : host;
 }
 
 const cogMetrics = [
-  { label: '任务切换损耗', get: () => Math.min(switchLog.length * 15, 100) },
-  { label: '工作记忆压力', get: () => Math.min(checkedHarms.size * 12 + switchLog.length * 5, 100) },
-  { label: '注意力恢复成本', get: () => switchLog.length > 0 ? Math.min(20 + switchLog.length * 10, 100) : 0 },
-  { label: '前额叶疲劳', get: () => {
-    const h4 = checkedHarms.has('h4') ? 40 : 0;
-    const h8 = checkedHarms.has('h8') ? 30 : 0;
-    const el = running ? Math.round((totalTime - timeLeft) / 60) : 0;
-    return Math.min(h4 + h8 + el, 100);
-  } },
+  { label: '任务切换损耗', get: () => Math.min(switchLog.length * 12, 100) },
+  { label: '工作记忆压力', get: () => Math.min((signals.multitask * 0.7) + switchLog.length * 4, 100) },
+  { label: '注意力恢复成本', get: () => switchLog.length > 0 ? Math.min(20 + switchLog.length * 8 + consistencyBreaks * 10, 100) : 0 },
+  { label: '前额叶疲劳', get: () => Math.min(signals.fatigue, 100) },
 ];
 
 function updateCogBars() {
-  document.getElementById('cogBars').innerHTML = cogMetrics.map((m) => {
+  const root = document.getElementById('cogBars');
+  if (!root) return;
+  root.innerHTML = cogMetrics.map((m) => {
     const val = Math.min(Math.round(m.get()), 100);
     const c = val < 30 ? 'var(--teal)' : val < 60 ? 'var(--amber)' : 'var(--crim)';
     return `<div class="cog-row">
@@ -657,24 +844,44 @@ function updateCogBars() {
 }
 
 function updateInsights() {
+  const root = document.getElementById('insights');
+  if (!root) return;
   const msgs = [];
-  if (!switchLog.length && !checkedHarms.size)
+
+  // 意图相关
+  if (running && !intent.text) {
+    msgs.push({ t: 'warn', x: '当前番茄没有锚定意图 — 写下一句具体目标可显著降低中途分心。' });
+  }
+  if (intent.text && running) {
+    msgs.push({ t: 'ok', x: `当前意图：「${intent.text}」— 把注意力收回到这一件事上。` });
+  }
+
+  // 信号灯衍生建议
+  if (signals.consistency >= 60) {
+    msgs.push({ t: 'danger', x: `本轮已离开工作域 ${consistencyBreaks} 次 — 每次切换平均消耗 23 分钟恢复成本。` });
+  } else if (signals.consistency >= 30) {
+    msgs.push({ t: 'warn', x: '注意：本轮已经有几次离开工作域，关闭无关标签页保持心流。' });
+  }
+  if (signals.distraction >= 60) {
+    msgs.push({ t: 'danger', x: `今天已 ${distractionHitsToday} 次切到社交 / 视频站 — 考虑临时屏蔽。` });
+  } else if (signals.distraction >= 30) {
+    msgs.push({ t: 'warn', x: '出现了几次干扰站点访问，把手机翻到屏幕朝下，关闭通知。' });
+  }
+  if (signals.multitask >= 60) {
+    msgs.push({ t: 'warn', x: '同时打开的站点过多 — 多窗口等于隐性持续切换，只留一个任务界面。' });
+  }
+  if (signals.fatigue >= 70) {
+    msgs.push({ t: 'danger', x: '连续高强度活跃 — 前额叶资源接近耗尽，立刻起身 2 分钟。' });
+  }
+  if (switchLog.length >= 6) {
+    msgs.push({ t: 'danger', x: `今日已切换 ${switchLog.length} 次。建议番茄结束后真正休息 5 分钟。` });
+  }
+
+  if (!msgs.length) {
     msgs.push({ t: 'ok', x: '一切正常 — 保持当前状态，继续深度工作。' });
-  if (switchLog.length >= 3)
-    msgs.push({ t: 'danger', x: `已切换 ${switchLog.length} 次。每次任务切换平均需 23 分钟恢复专注，建议休息后重开。` });
-  else if (switchLog.length)
-    msgs.push({ t: 'warn', x: `切换了 ${switchLog.length} 次 — 尚可控。关闭无关标签页，把手机翻到屏幕朝下。` });
-  if (checkedHarms.has('h1')) msgs.push({ t: 'danger', x: '查看手机平均消耗 20 分钟专注窗口。' });
-  if (checkedHarms.has('h4')) msgs.push({ t: 'danger', x: '超 90 分钟未休息，前额叶资源耗尽 — 立刻起身走两分钟。' });
-  if (checkedHarms.has('h8')) msgs.push({ t: 'danger', x: '睡眠不足使记忆巩固效率下降 40% 以上，今天注意保护已有成果。' });
-  if (checkedHarms.has('h3')) msgs.push({ t: 'warn', x: '语言类内容与语言处理中枢竞争，换成无词音乐或白噪音。' });
-  if (checkedHarms.has('h5')) msgs.push({ t: 'warn', x: '通知会激活定向注意力网络，现在进入勿扰模式。' });
-  if (checkedHarms.has('h2')) msgs.push({ t: 'danger', x: '多窗口等于隐性持续切换，只留一个任务界面。' });
-  if (checkedHarms.has('h6')) msgs.push({ t: 'danger', x: '实时回消息让大脑始终处于响应模式，设固定回复时段。' });
-  if (checkedHarms.has('h7')) msgs.push({ t: 'warn', x: '跳过正餐会让认知表现下降 10-15%，去补充些水分。' });
-  document.getElementById('insights').innerHTML =
-    msgs.map((m) => `<div class="insight-box insight-${m.t}">${m.x}</div>`).join('') ||
-    '<div class="insight-box insight-ok">一切正常 — 保持当前状态，继续深度工作。</div>';
+  }
+
+  root.innerHTML = msgs.map((m) => `<div class="insight-box insight-${m.t}">${m.x}</div>`).join('');
 }
 
 /* ════════════════════════════════════════
@@ -687,7 +894,6 @@ function bindEvents() {
   document.getElementById('modeCustom').addEventListener('click', () => setMode('custom'));
   document.getElementById('startBtn').addEventListener('click', toggleTimer);
   document.getElementById('resetBtn').addEventListener('click', resetTimer);
-  document.getElementById('logSwitchBtn').addEventListener('click', logSwitch);
 
   // 完成弹窗：休息 / 再来一轮 / 点击遮罩或 Esc 关闭
   document.getElementById('tdmRestBtn').addEventListener('click', hideTimerDoneModal);
@@ -696,8 +902,14 @@ function bindEvents() {
     if (e.target.id === 'timerDoneModal') hideTimerDoneModal();
   });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') hideTimerDoneModal();
+    if (e.key === 'Escape') { hideTimerDoneModal(); hideIntentInputModal(); hideIntentReviewModal(); }
   });
+
+  // 意图锚结算弹窗按钮
+  const doneBtn = document.getElementById('intentDoneBtn');
+  const missBtn = document.getElementById('intentMissBtn');
+  if (doneBtn) doneBtn.addEventListener('click', () => reviewIntent('done'));
+  if (missBtn) missBtn.addEventListener('click', () => reviewIntent('miss'));
 
   // 完成提醒开关
   document.getElementById('notifyToggle').addEventListener('change', (e) => toggleNotifyPref(e.target.checked));
@@ -780,17 +992,658 @@ async function init() {
   setupTabs();
   await loadFocus();
   await loadNotifyPref();
+  await syncAutoSwitchFromBg();
   await restoreTimer();
   chrome.storage.onChanged.addListener(onTimerStorageChange);
+  chrome.storage.onChanged.addListener(onAutoSwitchStorageChange);
   document.getElementById('switchCount').textContent = switchLog.length;
-  document.getElementById('harmCountInline').textContent = checkedHarms.size;
-  renderChecklist();
+  renderIntent();
   renderSwitchLog();
+  renderSignalGrid();
   updateCogBars();
   updateInsights();
+  refreshSignals();
   renderTimeDashboard();
   // 数据可能在打开期间被后台更新，定时刷新（含进行中活跃段的实时合并）
   setInterval(renderTimeDashboard, 5000);
+  // 信号灯每 20s 自检一次（idle / 多任务 / 疲劳是连续变量）
+  setInterval(refreshSignals, 20000);
+  // 意图锚的"已坚持 N 分钟"每 60s 重渲一次
+  setInterval(() => { if (intent.text) renderIntent(); }, 60000);
+}
+
+/* ── 监听后台自动写入的切换日志 ── */
+const BG_SWITCH_KEY_PREFIX = 'bp_autoSwitch_';
+function bgSwitchKey() { return BG_SWITCH_KEY_PREFIX + BPDB.todayKey(); }
+
+async function syncAutoSwitchFromBg() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get([bgSwitchKey()], (res) => {
+      const data = res[bgSwitchKey()];
+      if (data && Array.isArray(data.entries)) {
+        switchLog = data.entries.slice(-200); // 上限避免无限增长
+        distractionHitsToday = data.entries.filter((e) => e && e.distract).length;
+        consistencyBreaks = data.consistencyBreaks || 0;
+      }
+      resolve();
+    });
+  });
+}
+
+function onAutoSwitchStorageChange(changes, area) {
+  if (area !== 'local') return;
+  if (!changes[bgSwitchKey()]) return;
+  const data = changes[bgSwitchKey()].newValue;
+  if (!data || !Array.isArray(data.entries)) return;
+  switchLog = data.entries.slice(-200);
+  distractionHitsToday = data.entries.filter((e) => e && e.distract).length;
+  consistencyBreaks = data.consistencyBreaks || 0;
+  const el = document.getElementById('switchCount');
+  if (el) el.textContent = switchLog.length;
+  renderSwitchLog();
+  refreshSignals();
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
+/* ════════════════════════════════════════
+   AI 行为洞察（顶部独立菜单 · 综合：历史指标 + 当前标签页 + 任务管理 + 番茄/意图 + 信号灯）
+   ════════════════════════════════════════ */
+let _aiBusy = false;
+let _aiMermaidReady = false;
+let _aiMermaidSeq = 0;
+
+function escAI(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function ensureAIMermaid() {
+  if (typeof window.mermaid === 'undefined') return null;
+  if (!_aiMermaidReady) {
+    try {
+      const dark = resolvedDark();
+      window.mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: 'strict',
+        theme: dark ? 'dark' : 'default',
+        fontFamily: 'inherit',
+        themeVariables: dark
+          ? { background: 'transparent', primaryColor: '#1e2a3a', primaryTextColor: '#e6ecf3', lineColor: '#5b6b80' }
+          : { background: 'transparent', primaryColor: '#fff3e6', primaryTextColor: '#1a2533', lineColor: '#6f7d92' },
+      });
+      _aiMermaidReady = true;
+    } catch (e) { /* ignore */ }
+  }
+  return window.mermaid;
+}
+
+function renderAIMarkdown(md) {
+  const text = String(md || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  if (typeof window.marked === 'undefined') {
+    return '<pre class="ai-fallback">' + escAI(text) + '</pre>';
+  }
+  try {
+    if (window.marked.setOptions) window.marked.setOptions({ breaks: true, gfm: true });
+    const renderer = new window.marked.Renderer();
+    const origCode = renderer.code.bind(renderer);
+    renderer.code = function (code, infostring) {
+      const lang = (infostring || '').trim().toLowerCase().split(/\s+/)[0] || '';
+      if (lang === 'mermaid') {
+        const id = 'bp-nt-mmd-' + (++_aiMermaidSeq);
+        return '<div class="mermaid-wrap"><div class="mermaid" id="' + id + '">' + escAI(code) + '</div></div>';
+      }
+      return origCode(code, infostring);
+    };
+    return window.marked.parse(text, { renderer });
+  } catch (e) {
+    return '<pre class="ai-fallback">' + escAI(text) + '</pre>';
+  }
+}
+
+async function renderAIMermaidIn(container) {
+  if (!container) return;
+  const nodes = container.querySelectorAll('.mermaid');
+  if (!nodes.length) return;
+  const mm = ensureAIMermaid();
+  if (!mm) return;
+  for (const node of nodes) {
+    if (node.dataset.bpRendered === '1') continue;
+    const src = node.textContent || '';
+    const id = node.id || 'bp-nt-mmd-x-' + (++_aiMermaidSeq);
+    try {
+      const { svg, bindFunctions } = await mm.render(id + '-svg', src);
+      node.innerHTML = svg;
+      if (typeof bindFunctions === 'function') bindFunctions(node);
+      node.dataset.bpRendered = '1';
+    } catch (err) {
+      node.innerHTML = '<pre class="mermaid-error">Mermaid 渲染失败：'
+        + escAI(err && err.message ? err.message : String(err))
+        + '\n\n' + escAI(src) + '</pre>';
+      node.dataset.bpRendered = '1';
+    }
+  }
+}
+
+function setAIOutput(html, cls) {
+  const out = document.getElementById('aiOutput');
+  if (!out) return;
+  out.className = 'ai-output' + (cls ? ' ' + cls : '');
+  out.innerHTML = html;
+  renderAIMermaidIn(out);
+}
+
+/* —— 收集「此刻」的额外上下文 —— */
+function rootDomainOf(url) {
+  try {
+    const h = new URL(url).hostname;
+    if (window.BPCat && BPCat.rootDomain) return BPCat.rootDomain(h) || h;
+    return h;
+  } catch (e) { return ''; }
+}
+
+function normalizeUrl(url) {
+  try { const u = new URL(url); return (u.origin + u.pathname).replace(/\/$/, ''); }
+  catch (e) { return url || ''; }
+}
+
+async function collectTabsContext() {
+  let tabs = [];
+  try { tabs = await chrome.tabs.query({}); } catch (e) { tabs = []; }
+  const STALE_MS = 12 * 3600 * 1000;
+  const now = Date.now();
+
+  const winSet = new Set();
+  const domainMap = new Map();
+  const urlCount = new Map();
+  let pinned = 0, audible = 0, stale = 0;
+
+  for (const t of tabs) {
+    if (t.windowId != null) winSet.add(t.windowId);
+    const d = rootDomainOf(t.url) || '本地/浏览器';
+    domainMap.set(d, (domainMap.get(d) || 0) + 1);
+    const u = normalizeUrl(t.url);
+    urlCount.set(u, (urlCount.get(u) || 0) + 1);
+    if (t.pinned) pinned++;
+    if (t.audible) audible++;
+    if (typeof t.lastAccessed === 'number' && (now - t.lastAccessed > STALE_MS)) stale++;
+  }
+  let duplicates = 0;
+  urlCount.forEach((c) => { if (c > 1) duplicates += c - 1; });
+
+  // Top 域名（按打开数）
+  const topDomains = [...domainMap.entries()]
+    .sort((a, b) => b[1] - a[1]).slice(0, 8)
+    .map(([domain, count]) => ({ domain, count }));
+
+  // 类别归类（依赖 site-groups 规则）
+  const byCategory = new Map();
+  try {
+    const rules = await BPCat.getRules();
+    for (const t of tabs) {
+      const cat = BPCat.siteGroupOf(rootDomainOf(t.url), rules.siteGroups);
+      byCategory.set(cat, (byCategory.get(cat) || 0) + 1);
+    }
+  } catch (e) { /* ignore */ }
+  const categoryShare = [...byCategory.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([category, count]) => ({ category, count }));
+
+  return {
+    total: tabs.length,
+    unique_windows: winSet.size,
+    unique_domains: domainMap.size,
+    pinned, audible_playing: audible,
+    stale_over_12h: stale,
+    duplicate_tabs: duplicates,
+    top_domains: topDomains,
+    category_share: categoryShare,
+  };
+}
+
+function fmtSec(sec) {
+  sec = Math.max(0, Math.round(sec || 0));
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+}
+
+function collectFocusContext() {
+  const remainingSec = (typeof timerEndAt === 'number' && timerEndAt > Date.now())
+    ? Math.round((timerEndAt - Date.now()) / 1000)
+    : (typeof timeLeft === 'number' ? timeLeft : 0);
+  const totalSec = typeof totalTime === 'number' ? totalTime : 0;
+  const elapsedSec = Math.max(0, totalSec - remainingSec);
+  return {
+    running: !!running,
+    mode: mode || 'pomodoro',
+    total_seconds: totalSec,
+    remaining_seconds: remainingSec,
+    remaining_readable: fmtSec(remainingSec),
+    elapsed_seconds: running ? elapsedSec : 0,
+    notify_enabled: !!notifyEnabled,
+  };
+}
+
+function collectIntentContext() {
+  if (!intent || !intent.text) return { active: false };
+  const ageMin = intent.startedAt ? Math.round((Date.now() - intent.startedAt) / 60000) : 0;
+  return {
+    active: true,
+    text: intent.text,
+    minutes_since_set: ageMin,
+    history_count: Array.isArray(intent.history) ? intent.history.length : 0,
+  };
+}
+
+function collectSignalsContext() {
+  return {
+    fatigue: Math.round(signals.fatigue || 0),
+    multitask: Math.round(signals.multitask || 0),
+    consistency_break: Math.round(signals.consistency || 0),
+    distraction: Math.round(signals.distraction || 0),
+    switch_count_today: switchLog.length,
+    consistency_breaks_this_pomodoro: consistencyBreaks,
+    distraction_hits_today: distractionHitsToday,
+  };
+}
+
+function nowContext() {
+  const d = new Date();
+  const wk = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][d.getDay()];
+  return {
+    iso: d.toISOString(),
+    local: d.toLocaleString('zh-CN', { hour12: false }),
+    weekday: wk,
+    hour: d.getHours(),
+  };
+}
+
+async function collectAIExtras() {
+  const tabs = await collectTabsContext();
+  return {
+    now: nowContext(),
+    open_tabs: tabs,
+    task_management: {
+      stale_tabs: tabs.stale_over_12h,
+      duplicate_tabs: tabs.duplicate_tabs,
+      total_open: tabs.total,
+      windows: tabs.unique_windows,
+      suggestion_hint: tabs.stale_over_12h + tabs.duplicate_tabs > 0
+        ? '存在可清理的陈旧 / 重复标签页，可在「任务管理」一键处理'
+        : '标签页较为整洁',
+    },
+    focus_timer: collectFocusContext(),
+    intent_anchor: collectIntentContext(),
+    live_signals: collectSignalsContext(),
+  };
+}
+
+function paintAIChips(extras) {
+  const t = extras.open_tabs || {};
+  const set = (id, text, cls) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = text;
+    el.classList.remove('warn', 'ok');
+    if (cls) el.classList.add(cls);
+  };
+  set('aiChipTabs', `标签页 ${t.total || 0} · ${t.unique_windows || 0} 窗 · ${t.unique_domains || 0} 域`);
+  const taskWarn = (t.stale_over_12h || 0) + (t.duplicate_tabs || 0);
+  set('aiChipTasks', `任务 陈旧 ${t.stale_over_12h || 0} · 重复 ${t.duplicate_tabs || 0}`, taskWarn > 0 ? 'warn' : 'ok');
+  const f = extras.focus_timer || {};
+  set('aiChipFocus', f.running ? `番茄 ${f.mode} · 剩 ${f.remaining_readable}` : '番茄 未开始');
+  const it = extras.intent_anchor || {};
+  set('aiChipIntent', it.active ? `意图 已坚持 ${it.minutes_since_set} 分钟` : '意图 未锚定');
+  const sig = extras.live_signals || {};
+  set('aiChipSwitch', `切换 ${sig.switch_count_today || 0} · 干扰命中 ${sig.distraction_hits_today || 0}`,
+    (sig.distraction_hits_today || 0) >= 3 ? 'warn' : '');
+}
+
+async function updateAIChips() {
+  try {
+    const extras = await collectAIExtras();
+    paintAIChips(extras);
+    // 今日浏览/创作时长直接读 metric 条已有数字（已实时刷新）
+    const browseEl = document.getElementById('tdTotalBrowse');
+    const createEl = document.getElementById('tdTotalCreate');
+    const cb = document.getElementById('aiChipBrowse');
+    const cc = document.getElementById('aiChipCreate');
+    if (cb && browseEl) cb.textContent = '今日浏览 ' + (browseEl.textContent || '—');
+    if (cc && createEl) cc.textContent = '今日创作 ' + (createEl.textContent || '—');
+  } catch (e) { /* ignore */ }
+}
+
+async function runAIAnalysis() {
+  if (_aiBusy) return;
+  if (!window.BPAI) { setAIOutput('❌ AI 模块未加载', 'error'); return; }
+  const btn = document.getElementById('aiRunBtn');
+  const sel = document.getElementById('aiDays');
+  const days = sel ? Math.max(1, parseInt(sel.value, 10) || 7) : 7;
+  _aiBusy = true;
+  if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
+  setAIOutput('正在汇总最近 ' + days + ' 天的本地行为数据，并整合当前标签页 / 任务 / 番茄状态…（一般 5–30 秒）', 'loading');
+  const startedAt = Date.now();
+  try {
+    const extras = await collectAIExtras();
+    paintAIChips(extras);
+    const { metrics, reply } = await BPAI.analyze({ days, extras });
+    const finishedAt = Date.now();
+    const cost = ((finishedAt - startedAt) / 1000).toFixed(1) + 's';
+    const meta = `<div class="ai-meta">窗口：${escAI(metrics.window.start_day)} → ${escAI(metrics.window.end_day)} · `
+      + `${metrics.totals.record_count} 条记录 · 切换 ${metrics.switching.total_switches} 次 · `
+      + `当前 ${extras.open_tabs.total} 标签页 · 耗时 ${cost}</div>`;
+    setAIOutput(renderAIMarkdown(reply) + meta);
+    saveAILastReport({
+      reply: String(reply || ''),
+      days,
+      finishedAt,
+      cost,
+      window: metrics.window,
+      record_count: metrics.totals.record_count,
+      switches: metrics.switching.total_switches,
+      tabs_total: extras.open_tabs.total,
+    });
+  } catch (e) {
+    setAIOutput('❌ ' + escAI(e && e.message ? e.message : String(e)), 'error');
+  } finally {
+    _aiBusy = false;
+    if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+  }
+}
+
+function openOptionsAtAIPanel() {
+  try {
+    const target = chrome.runtime.getURL('options/options.html') + '#aiPanel';
+    chrome.tabs.create({ url: target });
+  } catch (e) { /* ignore */ }
+}
+
+/* —— 最近 AI 报告（最多 7 份）：持久化 / 渲染 / 导出 —— */
+const AI_LAST_KEY = 'bp_ai_last_report';      // 旧版单条键，仅用于一次性迁移
+const AI_LIST_KEY = 'bp_ai_reports';          // 新版列表键
+const AI_MAX_REPORTS = 7;
+const AI_EXCERPT_LEN = 90;                    // 卡片摘要字符上限
+let _aiReports = [];                          // 按时间倒序，最新在前
+let _aiActiveIdx = -1;                        // -1 = 未展开任何报告；>=0 = 当前在输出区展示的报告下标
+
+function _aiActiveReport() {
+  if (!_aiReports || !_aiReports.length) return null;
+  if (_aiActiveIdx < 0 || _aiActiveIdx >= _aiReports.length) return null;
+  return _aiReports[_aiActiveIdx] || null;
+}
+
+/**
+ * 从 Markdown 报告中提取一段纯文本摘要，用于卡片预览。
+ * - 去掉代码块（含 mermaid）、标题井号、列表前缀、加粗/斜体标记等；
+ * - 取前 N 个非空字符，超出加省略号。
+ */
+function aiReplyExcerpt(md, limit) {
+  const max = limit || AI_EXCERPT_LEN;
+  if (!md) return '';
+  let s = String(md);
+  s = s.replace(/```[\s\S]*?```/g, ' ');         // 代码块
+  s = s.replace(/!\[[^\]]*\]\([^)]*\)/g, ' ');   // 图片
+  s = s.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1'); // 链接保留文本
+  s = s.replace(/^\s{0,3}#{1,6}\s+/gm, '');      // 标题井号
+  s = s.replace(/^\s*[-*+]\s+/gm, '');           // 无序列表
+  s = s.replace(/^\s*\d+\.\s+/gm, '');           // 有序列表
+  s = s.replace(/^\s*>\s?/gm, '');               // 引用
+  s = s.replace(/[*_`~]+/g, '');                 // 强调/行内代码
+  s = s.replace(/\s+/g, ' ').trim();
+  if (s.length > max) s = s.slice(0, max).replace(/\s+\S*$/, '') + '…';
+  return s;
+}
+
+function fmtAILastTime(ts) {
+  if (!ts) return '—';
+  const d = new Date(ts);
+  const now = new Date();
+  const diff = now - d;
+  const sameDay = d.toDateString() === now.toDateString();
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  if (diff < 60 * 1000) return '刚刚';
+  if (diff < 3600 * 1000) return Math.round(diff / 60000) + ' 分钟前';
+  if (sameDay) return '今天 ' + hh + ':' + mm;
+  const y = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, '0');
+  const da = String(d.getDate()).padStart(2, '0');
+  return `${y}-${mo}-${da} ${hh}:${mm}`;
+}
+
+function fmtAIShortTime(ts) {
+  if (!ts) return '—';
+  const d = new Date(ts);
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  if (sameDay) return '今天 ' + hh + ':' + mm;
+  const mo = String(d.getMonth() + 1).padStart(2, '0');
+  const da = String(d.getDate()).padStart(2, '0');
+  return `${mo}-${da} ${hh}:${mm}`;
+}
+
+function renderAIRecap() {
+  const hint = document.getElementById('aiLastRunHint');
+  updateAIExportBtn();
+  const latest = _aiReports && _aiReports[0];
+  if (!latest) {
+    if (hint) hint.textContent = '';
+    renderAIHistoryList();
+    return;
+  }
+  const timeText = '上次分析：' + fmtAILastTime(latest.finishedAt)
+    + '（最近 ' + (latest.days || 7) + ' 天）';
+  if (hint) hint.textContent = ' · ' + timeText;
+  renderAIHistoryList();
+}
+
+function updateAIExportBtn() {
+  const btn = document.getElementById('aiExportBtn');
+  if (!btn) return;
+  const active = _aiActiveReport();
+  const has = !!(active && active.reply);
+  btn.hidden = !has;
+}
+
+function renderAIHistoryList() {
+  const wrap = document.getElementById('aiHistoryList');
+  if (!wrap) return;
+  if (!_aiReports || !_aiReports.length) {
+    wrap.innerHTML = '<div class="ai-history-empty">暂无历史报告，点击上方「开始 AI 分析」即可生成第一份。</div>';
+    return;
+  }
+  const items = _aiReports.slice(0, AI_MAX_REPORTS).map((r, i) => {
+    const isActive = (i === _aiActiveIdx);
+    const title = `最近 ${r.days || 7} 天分析`;
+    const sub = fmtAIShortTime(r.finishedAt)
+      + (r.record_count != null ? ' · ' + r.record_count + ' 条' : '')
+      + (r.switches != null ? ' · 切换 ' + r.switches : '');
+    const excerpt = aiReplyExcerpt(r.reply) || '（报告内容为空）';
+    const ariaPressed = isActive ? 'true' : 'false';
+    return `<button type="button" class="ai-card${isActive ? ' active' : ''}" data-idx="${i}" `
+      + `aria-pressed="${ariaPressed}" title="${isActive ? '点击收起完整报告' : '点击查看完整报告'}">`
+      + `<div class="ai-card-head">`
+      + `<span class="ai-card-idx">#${i + 1}</span>`
+      + `<span class="ai-card-title">${escAI(title)}</span>`
+      + `<span class="ai-card-time">${escAI(fmtAIShortTime(r.finishedAt))}</span>`
+      + `</div>`
+      + `<div class="ai-card-sub">${escAI(sub)}</div>`
+      + `<div class="ai-card-excerpt">${escAI(excerpt)}</div>`
+      + `<div class="ai-card-foot">${isActive ? '已展开 · 点击收起' : '点击查看完整报告 →'}</div>`
+      + `</button>`;
+  }).join('');
+  wrap.innerHTML = items;
+  wrap.querySelectorAll('.ai-card').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.getAttribute('data-idx'), 10) || 0;
+      if (idx === _aiActiveIdx) {
+        // 再次点击当前选中的卡片 → 收起详情
+        _aiActiveIdx = -1;
+        clearAIOutput();
+      } else {
+        _aiActiveIdx = idx;
+        renderAIRecapIntoModalOutput();
+      }
+      renderAIHistoryList();
+      updateAIExportBtn();
+    });
+  });
+}
+
+function clearAIOutput() {
+  const out = document.getElementById('aiOutput');
+  if (!out) return;
+  out.className = 'ai-output';
+  out.innerHTML = '';
+}
+
+function renderAIRecapIntoModalOutput() {
+  const r = _aiActiveReport();
+  if (!r || !r.reply) return;
+  const out = document.getElementById('aiOutput');
+  if (!out) return;
+  const meta = `<div class="ai-meta">报告时间：${escAI(fmtAILastTime(r.finishedAt))}`
+    + `（最近 ${r.days || 7} 天`
+    + (r.window ? ` · ${escAI(r.window.start_day)} → ${escAI(r.window.end_day)}` : '')
+    + `）${r.record_count != null ? ' · ' + r.record_count + ' 条记录' : ''}`
+    + `${r.switches != null ? ' · 切换 ' + r.switches + ' 次' : ''}`
+    + `${r.cost ? ' · 耗时 ' + escAI(r.cost) : ''}</div>`;
+  setAIOutput(renderAIMarkdown(r.reply) + meta);
+}
+
+function saveAILastReport(report) {
+  if (!report) return;
+  _aiReports.unshift(report);
+  if (_aiReports.length > AI_MAX_REPORTS) _aiReports.length = AI_MAX_REPORTS;
+  _aiActiveIdx = 0;
+  try {
+    chrome.storage.local.set({ [AI_LIST_KEY]: _aiReports });
+    // 旧版单条键不再使用，清理以释放空间
+    chrome.storage.local.remove([AI_LAST_KEY]);
+  } catch (e) { /* ignore */ }
+  renderAIRecap();
+}
+
+function loadAILastReport() {
+  try {
+    chrome.storage.local.get([AI_LIST_KEY, AI_LAST_KEY], (res) => {
+      const list = res && Array.isArray(res[AI_LIST_KEY]) ? res[AI_LIST_KEY].slice(0) : [];
+      // 一次性迁移旧版单条数据
+      if (!list.length && res && res[AI_LAST_KEY]) {
+        list.push(res[AI_LAST_KEY]);
+        try {
+          chrome.storage.local.set({ [AI_LIST_KEY]: list });
+          chrome.storage.local.remove([AI_LAST_KEY]);
+        } catch (e) { /* ignore */ }
+      }
+      _aiReports = list.slice(0, AI_MAX_REPORTS);
+      _aiActiveIdx = -1;   // 打开页面/弹窗时默认不展开任何一份，避免拥挤
+      renderAIRecap();
+    });
+  } catch (e) { /* ignore */ }
+}
+
+function exportAILastReport() {
+  const r = _aiActiveReport();
+  if (!r || !r.reply) {
+    if (typeof showToast === 'function') showToast('暂无可导出的报告，请先生成一次 AI 分析', 'warn');
+    return;
+  }
+  const d = new Date(r.finishedAt || Date.now());
+  const pad = (n) => String(n).padStart(2, '0');
+  const stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
+  const header = `# 脑力守护 · AI 行为洞察报告\n\n`
+    + `- 生成时间：${d.toLocaleString('zh-CN', { hour12: false })}\n`
+    + `- 分析窗口：最近 ${r.days || 7} 天`
+    + (r.window ? `（${r.window.start_day} → ${r.window.end_day}）` : '') + `\n`
+    + (r.record_count != null ? `- 行为记录：${r.record_count} 条\n` : '')
+    + (r.switches != null ? `- 切换次数：${r.switches}\n` : '')
+    + (r.tabs_total != null ? `- 当时标签页数：${r.tabs_total}\n` : '')
+    + (r.cost ? `- 调用耗时：${r.cost}\n` : '')
+    + `\n---\n\n`;
+  const md = header + String(r.reply || '');
+  try {
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `脑力守护-AI洞察_${stamp}.md`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+      a.remove();
+    }, 1000);
+    if (typeof showToast === 'function') showToast('已导出 Markdown 报告', 'ok');
+  } catch (e) {
+    if (typeof showToast === 'function') showToast('导出失败：' + (e && e.message ? e.message : e), 'warn');
+  }
+}
+
+/* —— AI 洞察弹窗 —— */
+function openAIInsightModal() {
+  const m = document.getElementById('aiInsightModal');
+  if (!m) return;
+  m.hidden = false;
+  requestAnimationFrame(() => m.classList.add('show'));
+  updateAIChips();
+  renderAIHistoryList();
+  // 默认不展开任何一份历史报告，由用户点击卡片来查看详情，避免 UI 拥挤。
+  // 若上次用户主动展开过某一份（_aiActiveIdx >= 0）则保留，否则清空输出区。
+  if (_aiActiveIdx < 0) {
+    clearAIOutput();
+  } else {
+    renderAIRecapIntoModalOutput();
+  }
+  updateAIExportBtn();
+}
+function closeAIInsightModal() {
+  const m = document.getElementById('aiInsightModal');
+  if (!m) return;
+  m.classList.remove('show');
+  setTimeout(() => { m.hidden = true; }, 220);
+}
+
+function initAIInsightPanel() {
+  const btn = document.getElementById('aiRunBtn');
+  if (btn) btn.addEventListener('click', runAIAnalysis);
+  const cfg = document.getElementById('aiCfgBtn');
+  if (cfg) cfg.addEventListener('click', openOptionsAtAIPanel);
+  const exportBtn = document.getElementById('aiExportBtn');
+  if (exportBtn) exportBtn.addEventListener('click', exportAILastReport);
+
+  // 顶栏「AI 洞察」按钮
+  const openBtn = document.getElementById('aiInsightOpenBtn');
+  if (openBtn) openBtn.addEventListener('click', openAIInsightModal);
+
+  // 弹窗关闭：按钮 / 点击遮罩 / ESC
+  const closeBtn = document.getElementById('aiInsightCloseBtn');
+  if (closeBtn) closeBtn.addEventListener('click', closeAIInsightModal);
+  const overlay = document.getElementById('aiInsightModal');
+  if (overlay) overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeAIInsightModal();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const m = document.getElementById('aiInsightModal');
+      if (m && !m.hidden) closeAIInsightModal();
+    }
+  });
+
+  // 主题变化后 mermaid 颜色需重置
+  themeMQ.addEventListener('change', () => { _aiMermaidReady = false; });
+  const themeBtn = document.getElementById('themeBtn');
+  if (themeBtn) themeBtn.addEventListener('click', () => { _aiMermaidReady = false; });
+
+  // 首次渲染 chips + 周期刷新
+  updateAIChips();
+  setInterval(updateAIChips, 4000);
+
+  // 载入最近一次 AI 报告
+  loadAILastReport();
+}
+
+document.addEventListener('DOMContentLoaded', initAIInsightPanel);

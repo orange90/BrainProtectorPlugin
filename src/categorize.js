@@ -72,17 +72,54 @@
     'notion.so': 'Notion',
   };
 
+  let _fileDefaultsPromise = null;
+  function loadFileDefaults() {
+    if (_fileDefaultsPromise) return _fileDefaultsPromise;
+    _fileDefaultsPromise = (async () => {
+      const result = { categories: DEFAULT_CATEGORIES, siteGroups: DEFAULT_SITE_GROUPS };
+      try {
+        if (typeof chrome === 'undefined' || !chrome.runtime || typeof chrome.runtime.getURL !== 'function') {
+          return result;
+        }
+        const [catRes, sgRes] = await Promise.all([
+          fetch(chrome.runtime.getURL('rules/categories.json')).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+          fetch(chrome.runtime.getURL('rules/site-groups.json')).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        ]);
+        if (catRes && typeof catRes === 'object') result.categories = catRes;
+        if (sgRes && typeof sgRes === 'object') result.siteGroups = sgRes;
+      } catch (e) {
+        // 保留内置默认值
+      }
+      return result;
+    })();
+    return _fileDefaultsPromise;
+  }
+
+  function getDefaultRules() {
+    return loadFileDefaults().then((d) => ({
+      categories: JSON.parse(JSON.stringify(d.categories)),
+      siteGroups: JSON.parse(JSON.stringify(d.siteGroups)),
+    }));
+  }
+
   function getRules() {
     return new Promise((resolve) => {
       try {
-        chrome.storage.local.get(['categories', 'siteGroups'], (res) => {
+        chrome.storage.local.get(['categories', 'siteGroups'], async (res) => {
+          const hasCat = res && res.categories && typeof res.categories === 'object' && Object.keys(res.categories).length > 0;
+          const hasSG = res && res.siteGroups && typeof res.siteGroups === 'object' && Object.keys(res.siteGroups).length > 0;
+          if (hasCat && hasSG) {
+            resolve({ categories: res.categories, siteGroups: res.siteGroups });
+            return;
+          }
+          const defaults = await loadFileDefaults();
           resolve({
-            categories: (res && res.categories) || DEFAULT_CATEGORIES,
-            siteGroups: (res && res.siteGroups) || DEFAULT_SITE_GROUPS,
+            categories: hasCat ? res.categories : defaults.categories,
+            siteGroups: hasSG ? res.siteGroups : defaults.siteGroups,
           });
         });
       } catch (e) {
-        resolve({ categories: DEFAULT_CATEGORIES, siteGroups: DEFAULT_SITE_GROUPS });
+        loadFileDefaults().then((defaults) => resolve(defaults));
       }
     });
   }
@@ -138,6 +175,7 @@
     DEFAULT_SITE_GROUPS,
     DOMAIN_NAMES,
     getRules,
+    getDefaultRules,
     categorize,
     rootDomain,
     siteGroupOf,

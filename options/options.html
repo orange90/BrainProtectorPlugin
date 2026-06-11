@@ -47,9 +47,9 @@
     table { width:100%; border-collapse:collapse; }
     th, td { text-align:left; font-size:12.5px; padding:8px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
     th { color:var(--ink-3); font-weight:600; font-size:10.5px; letter-spacing:0.06em; text-transform:uppercase; }
-    input[type=text], input[type=number], textarea { width:100%; background:rgba(255,255,255,0.5); border:1px solid var(--line-2);
+    input[type=text], input[type=number], input[type=password], textarea { width:100%; background:rgba(255,255,255,0.5); border:1px solid var(--line-2);
       border-radius:var(--r-s); padding:8px 10px; font-size:12.5px; color:var(--ink); font-family:inherit; }
-    [data-theme="dark"] input[type=text], [data-theme="dark"] input[type=number], [data-theme="dark"] textarea { background:rgba(255,255,255,0.05); }
+    [data-theme="dark"] input[type=text], [data-theme="dark"] input[type=number], [data-theme="dark"] input[type=password], [data-theme="dark"] textarea { background:rgba(255,255,255,0.05); }
     input:focus, textarea:focus { outline:none; border-color:var(--steel); }
     input[type=color] { width:38px; height:30px; border:1px solid var(--line-2); border-radius:var(--r-s); background:transparent; cursor:pointer; padding:2px; }
     textarea { min-height:140px; resize:vertical; font-family:ui-monospace,"SF Mono",Menlo,monospace; line-height:1.6; }
@@ -72,6 +72,19 @@
     .status { font-size:12.5px; color:var(--teal); margin-left:auto; font-weight:500; }
     .addcat { display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
     .addcat input { max-width:200px; }
+    .input-wrap { position:relative; display:block; }
+    .input-wrap input[type=text], .input-wrap input[type=password] { padding-right:38px; }
+    .reveal-btn { position:absolute; top:50%; right:6px; transform:translateY(-50%); background:transparent; border:none;
+      color:var(--ink-3); cursor:pointer; padding:4px; border-radius:var(--r-s); display:inline-flex; align-items:center; justify-content:center; }
+    .reveal-btn:hover { color:var(--ink); }
+    .reveal-btn:focus { outline:none; color:var(--ink); }
+    .reveal-btn svg { width:16px; height:16px; display:block; }
+    @keyframes panelFocusPulse {
+      0%   { box-shadow: var(--shadow), inset 0 1px 0 var(--hi-line), 0 0 0 0 var(--accent-glow); }
+      40%  { box-shadow: var(--shadow), inset 0 1px 0 var(--hi-line), 0 0 0 6px var(--accent-glow); }
+      100% { box-shadow: var(--shadow), inset 0 1px 0 var(--hi-line), 0 0 0 0 transparent; }
+    }
+    .panel.panel-focus { animation: panelFocusPulse 1.6s ease-out 1; border-color: var(--accent-bd); }
   </style>
   <script src="theme-init.js"></script>
 </head>
@@ -108,6 +121,68 @@
     </div>
 
     <div class="panel">
+      <h2>专注期间硬拦截 · 分心域名清单</h2>
+      <div class="hint">开启「番茄 / 深度专注」后，访问下列域名时会注入全屏遮罩，并强制 5 秒倒计时，避免无意识打开分心网站。点击「我必须现在用」可在本次专注会话内放行该域名。<br/>支持顶级域名匹配（例如填写 <code>bilibili.com</code> 会同时拦截 <code>www.bilibili.com</code>、<code>m.bilibili.com</code>）。</div>
+      <div class="addcat">
+        <input type="text" id="newBlockDomain" placeholder="例如 bilibili.com" />
+        <button class="btn" id="addBlockDomainBtn">
+          <svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>加入清单</button>
+        <button class="btn" id="useDefaultBlockBtn" type="button" title="一键填入常见分心域名">
+          <svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v4h4"/></svg>使用推荐清单</button>
+      </div>
+      <table style="margin-top:12px">
+        <thead>
+          <tr><th class="cat-name">域名</th><th>说明</th><th></th></tr>
+        </thead>
+        <tbody id="blockDomainBody"></tbody>
+      </table>
+    </div>
+
+    <div class="panel" id="aiPanel">
+      <h2>AI 行为分析</h2>
+      <div class="hint">配置任意兼容 OpenAI Chat Completions 接口的服务（如 OpenAI、DeepSeek、Kimi、Qwen、Ollama、OneAPI 自部署等）。AI 仅在你主动点击「开始 AI 分析」时被调用，本地行为指标会被打包成一次请求发送给你配置的接口；密钥仅保存在本地浏览器，不会上传到任何其它服务器。</div>
+      <table>
+        <tbody>
+          <tr>
+            <td class="cat-name" style="width:130px">接口地址</td>
+            <td><input type="text" id="aiEndpoint" placeholder="https://api.openai.com/v1/chat/completions" /></td>
+          </tr>
+          <tr>
+            <td class="cat-name">API Key</td>
+            <td>
+              <span class="input-wrap">
+                <input type="password" id="aiApiKey" placeholder="sk-..." autocomplete="off" spellcheck="false" />
+                <button type="button" class="reveal-btn" id="aiApiKeyReveal" aria-label="显示 / 隐藏 API Key" title="显示 / 隐藏 API Key" aria-pressed="false">
+                  <svg id="aiApiKeyRevealIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                </button>
+              </span>
+            </td>
+          </tr>
+          <tr>
+            <td class="cat-name">模型名称</td>
+            <td><input type="text" id="aiModel" placeholder="gpt-4o-mini / deepseek-chat / qwen-plus 等" /></td>
+          </tr>
+          <tr>
+            <td class="cat-name">温度(0~2)</td>
+            <td><input type="number" id="aiTemperature" min="0" max="2" step="0.1" placeholder="0.6" style="max-width:120px" /></td>
+          </tr>
+          <tr>
+            <td class="cat-name" style="vertical-align:top;padding-top:14px">系统提示词</td>
+            <td><textarea id="aiSystemPrompt" placeholder="留空将使用内置中文行为教练提示词，可自定义以约束分析风格、语气或目标。"></textarea></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="actions">
+        <button class="btn" id="aiTestBtn">
+          <svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M5 12l4 4L19 6"/></svg>测试连通性</button>
+        <span class="status" id="aiStatus"></span>
+      </div>
+    </div>
+
+    <div class="panel">
       <h2>数据管理</h2>
       <div class="hint">导出可做备份；清空将永久删除全部时间记录与专注会话。</div>
       <div class="actions">
@@ -129,6 +204,7 @@
 
   <script src="../src/db.js"></script>
   <script src="../src/categorize.js"></script>
+  <script src="../src/ai-analyzer.js"></script>
   <script src="options.js"></script>
 </body>
 </html>

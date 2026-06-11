@@ -71,10 +71,54 @@
       <div class="week" id="weekTrend"></div>
       <div class="legend" id="weekLegend" style="margin-top:8px;justify-content:center;"></div>
     </div>
+
+    <!-- 周报：易分心时段 + 连续无中断段 -->
+    <div class="panel glass">
+      <div class="panel-head">
+        <h2><svg class="ic" viewBox="0 0 24 24"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg>本周周报</h2>
+        <span class="sub" id="weeklySub">—</span>
+      </div>
+
+      <div class="weekly-kpis cards" id="weeklyKpis"></div>
+
+      <h3 class="weekly-h3">最易分心时段（按小时聚合，色越深越分心）</h3>
+      <div class="hour-heatmap" id="hourHeatmap"></div>
+      <div class="hour-axis" id="hourAxis"></div>
+      <div id="distractTop" class="distract-top"></div>
+
+      <h3 class="weekly-h3">最长连续无中断段 Top 5</h3>
+      <div id="streakList"></div>
+    </div>
+
+    <!-- AI 行为洞察 -->
+    <div class="panel glass">
+      <div class="panel-head">
+        <h2><svg class="ic" viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/><circle cx="12" cy="12" r="3"/></svg>AI 行为洞察</h2>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <select id="aiDays" class="trend-select" aria-label="分析窗口">
+            <option value="1">今天</option>
+            <option value="3">最近 3 天</option>
+            <option value="7" selected>最近 7 天</option>
+            <option value="14">最近 14 天</option>
+            <option value="30">最近 30 天</option>
+          </select>
+          <button class="btn" id="aiRunBtn">
+            <svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>开始 AI 分析</button>
+          <button class="btn" id="aiCfgBtn" title="前往设置配置 AI 接口">
+            <svg class="ic ic-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.9H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 2.9-1.2V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>配置</button>
+        </div>
+      </div>
+      <div class="ai-hint" id="aiHint">基于本地行为数据（使用时间、切换频率、分类占比等），调用你在设置中配置的 AI 接口生成个性化分析。仅在你点击按钮时联网。</div>
+      <div class="ai-output" id="aiOutput"></div>
+    </div>
+
   </div>
 
+  <script src="../vendor/marked.min.js"></script>
+  <script src="../vendor/mermaid.min.js"></script>
   <script src="../src/db.js"></script>
   <script src="../src/categorize.js"></script>
+  <script src="../src/ai-analyzer.js"></script>
   <script src="dashboard.js"></script>
 </body>
 </html>

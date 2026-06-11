@@ -20,13 +20,37 @@
 
   const path = location.pathname;
 
+  /* 知乎创作类页面识别：URL 命中即视为「创作场景」，
+     即便用户只是停留思考、没有持续敲字（未触发 START_CREATING），
+     也不会被兜底为「未分类」，而是归入「内容创作」。 */
+  function isCreatorPage() {
+    const host = location.host;
+    if (/(^|\.)zhuanlan\.zhihu\.com$/.test(host)) {
+      // 专栏写作 / 编辑：/write、/write/xxx
+      if (/^\/write(\/|$)/.test(path)) return true;
+    }
+    // 创作者中心：/creator、/creator/...
+    if (/^\/creator(\/|$)/.test(path)) return true;
+    // 答案编辑态：/question/<id>/answer/<aid>/edit、/answer/<aid>/edit
+    if (/\/answer\/[^/]+\/edit(\/|$)/.test(path)) return true;
+    if (/^\/question\/[^/]+\/answer\/[^/]+\/edit(\/|$)/.test(path)) return true;
+    // 想法 / 文章新建入口
+    if (/^\/pin\/edit(\/|$)/.test(path)) return true;
+    return false;
+  }
+
   /* ───────── 问题页 / 话题页：读取官方标签 ───────── */
   function reportStaticMeta() {
     let title = '';
     let tags = [];
     let content_type = 'page';
 
-    if (/^\/question\//.test(path)) {
+    if (isCreatorPage()) {
+      content_type = 'creator';
+      title = document.title || '知乎创作';
+      // 带上「创作」「内容创作」关键词，命中「内容创作」分类，避免兜底为「未分类」
+      tags = ['创作', '内容创作'];
+    } else if (/^\/question\//.test(path)) {
       content_type = 'question';
       title = (document.querySelector('h1.QuestionHeader-title') || {}).innerText || document.title;
       tags = [...document.querySelectorAll('.QuestionHeader-topics .TopicLink, .Tag .Popover div')]
