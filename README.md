@@ -149,7 +149,7 @@ bash scripts/build.sh          # 产出 dist/brain-protector-v<version>.zip
 
 ## 🔒 隐私
 
-- 仅申请 `tabs`、`storage`、`idle`、`scripting`、`alarms`、`tabGroups`、`notifications` 权限与 `<all_urls>`，用于读取页面标题/标签做计时、在专注结束时发出提醒、将标签整理应用为原生标签组
+- 仅申请 `tabs`、`storage`、`idle`、`alarms`、`tabGroups`、`notifications` 权限与 `<all_urls>`，用于读取页面标题/标签做计时、在专注结束时发出提醒、将标签整理应用为原生标签组
 - 所有记录写入本地 IndexedDB，可在设置页一键**导出**或**清空**
 - 默认**无任何网络请求**、无遥测、无服务器
 - **唯一一处可选联网**：当你手动点击「开始 AI 分析」时，扩展会向你在设置中**自行配置**的 OpenAI 兼容接口发送一次行为指标摘要；不配置则该功能完全不可用

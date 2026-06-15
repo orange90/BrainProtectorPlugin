@@ -36,7 +36,6 @@
 - `idle`：检测空闲以暂停计时，避免把离开时间错误计入
 - `alarms`：驱动番茄/深度专注计时器
 - `notifications`：在你勾选"完成后提醒"且专注会话结束时发出系统通知
-- `scripting`：动态注入专注期遮罩脚本与 SPA 路由重检脚本
 - `tabGroups`：仅在你主动点击"一键应用为 Chrome 标签组"时调用
 
 ### 六、你的权利
@@ -82,7 +81,6 @@ The permissions requested by this extension are used solely to implement its cor
 - `idle`: detect idle state to pause timing and avoid counting away-from-keyboard time
 - `alarms`: drive the Pomodoro / deep-focus timers
 - `notifications`: deliver a system notification when a focus session ends (only if you opt in)
-- `scripting`: inject the focus-block overlay and SPA-route re-check scripts on demand
 - `tabGroups`: only invoked when you actively click "Apply as Chrome Tab Groups"
 
 ### 6. Your Rights
